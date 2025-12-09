@@ -11,10 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/keanucz/AdobeConnectDL/internal/downloader"
 	"github.com/keanucz/AdobeConnectDL/internal/ffmpegexec"
 	"github.com/keanucz/AdobeConnectDL/internal/version"
-	"github.com/spf13/cobra"
 )
 
 var urlFileFlag string
@@ -23,10 +24,11 @@ var overwriteFlag bool
 func init() {
 	rootCmd.AddCommand(downloadCmd)
 	downloadCmd.Flags().StringVarP(&urlFileFlag, "file", "f", "", "Path to a text file containing URLs (one per line)")
-	downloadCmd.Flags().BoolVarP(&overwriteFlag, "overwrite", "y", false, "Overwrite existing directories without prompting")
+	downloadCmd.Flags().
+		BoolVarP(&overwriteFlag, "overwrite", "y", false, "Overwrite existing directories without prompting")
 }
 
-// formatBytes converts bytes to human readable format
+// formatBytes converts bytes to human readable format.
 func formatBytes(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
@@ -74,7 +76,7 @@ Examples:
 
 		// Validate we have at least one URL
 		if len(urls) == 0 {
-			return fmt.Errorf("no URLs provided. Specify URLs as arguments or use --file/-f")
+			return errors.New("no URLs provided. Specify URLs as arguments or use --file/-f")
 		}
 
 		// Remove duplicates while preserving order
@@ -144,9 +146,12 @@ Examples:
 
 			// Handle directory exists error with prompt
 			if errors.Is(err, downloader.ErrDirectoryExists) {
-				fmt.Fprintf(cmd.OutOrStdout(), "\033[1;33m⚠  Directory already exists with files.\033[0m Overwrite? [y/N]: ")
+				fmt.Fprintf(
+					cmd.OutOrStdout(),
+					"\033[1;33m⚠  Directory already exists with files.\033[0m Overwrite? [y/N]: ",
+				)
 				var response string
-				fmt.Scanln(&response)
+				_, _ = fmt.Scanln(&response)
 				response = strings.ToLower(strings.TrimSpace(response))
 				if response == "y" || response == "yes" {
 					opts.Overwrite = true
@@ -184,7 +189,12 @@ Examples:
 				Logger.Warn(w)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "\n\033[32m✓\033[0m Saved recording \"%s\" to %s\n", result.Title, result.RootDir)
+			fmt.Fprintf(
+				cmd.OutOrStdout(),
+				"\n\033[32m✓\033[0m Saved recording \"%s\" to %s\n",
+				result.Title,
+				result.RootDir,
+			)
 			successful++
 		}
 
@@ -209,7 +219,7 @@ Examples:
 	},
 }
 
-// readURLsFromFile reads URLs from a text file, one per line
+// readURLsFromFile reads URLs from a text file, one per line.
 func readURLsFromFile(path string) ([]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -235,7 +245,7 @@ func readURLsFromFile(path string) ([]string, error) {
 	return urls, nil
 }
 
-// deduplicateURLs removes duplicate URLs while preserving order
+// deduplicateURLs removes duplicate URLs while preserving order.
 func deduplicateURLs(urls []string) []string {
 	seen := make(map[string]bool)
 	result := make([]string, 0, len(urls))

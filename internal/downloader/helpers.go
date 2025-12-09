@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -75,14 +76,14 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 }
 
 // log is a helper that safely logs debug messages when logger is available.
-func log(logger Logger, msg string, keyvals ...interface{}) {
+func log(logger Logger, msg string, keyvals ...any) {
 	if logger != nil {
 		logger.Debug(msg, keyvals...)
 	}
 }
 
 // logInfo is a helper that safely logs info messages when logger is available.
-func logInfo(logger Logger, msg string, keyvals ...interface{}) {
+func logInfo(logger Logger, msg string, keyvals ...any) {
 	if logger != nil {
 		logger.Info(msg, keyvals...)
 	}
@@ -122,13 +123,13 @@ func parseRecordingURL(raw string) (recordingInfo, error) {
 		return recordingInfo{}, fmt.Errorf("parse url: %w", err)
 	}
 	if u.Host == "" {
-		return recordingInfo{}, fmt.Errorf("invalid url: host missing")
+		return recordingInfo{}, errors.New("invalid url: host missing")
 	}
 
 	path := strings.Trim(u.Path, "/")
 	parts := strings.Split(path, "/")
 	if len(parts) == 0 || parts[0] == "" {
-		return recordingInfo{}, fmt.Errorf("invalid url: recording id missing")
+		return recordingInfo{}, errors.New("invalid url: recording id missing")
 	}
 	id := parts[len(parts)-1]
 	basePath := "/" + strings.Join(parts, "/")
@@ -203,7 +204,7 @@ func unescapeJS(s string) string {
 	return re.ReplaceAllStringFunc(s, func(m string) string {
 		hex := m[2:]
 		var b byte
-		fmt.Sscanf(hex, "%x", &b)
+		_, _ = fmt.Sscanf(hex, "%x", &b)
 		return string(b)
 	})
 }
@@ -215,7 +216,7 @@ func parseVideoElement(body []byte) (videoSrc, vttPath string) {
 		tt := z.Next()
 		switch tt {
 		case html.ErrorToken:
-			return
+			return videoSrc, vttPath
 		case html.StartTagToken, html.SelfClosingTagToken:
 			t := z.Token()
 			switch t.Data {
@@ -232,6 +233,8 @@ func parseVideoElement(body []byte) (videoSrc, vttPath string) {
 					}
 				}
 			}
+		default:
+			// Ignore other token types (text, end tag, comment, doctype)
 		}
 	}
 }
@@ -263,7 +266,7 @@ func parseHTMLTitle(r io.Reader) (string, error) {
 		tt := z.Next()
 		switch tt {
 		case html.ErrorToken:
-			if z.Err() == io.EOF {
+			if errors.Is(z.Err(), io.EOF) {
 				return "", nil
 			}
 			return "", z.Err()
@@ -275,6 +278,8 @@ func parseHTMLTitle(r io.Reader) (string, error) {
 					return strings.TrimSpace(z.Token().Data), nil
 				}
 			}
+		default:
+			// Ignore other token types (text, end tag, comment, doctype)
 		}
 	}
 }
@@ -601,7 +606,7 @@ func extractLecturerName(rawDir string) string {
 }
 
 // extractUserMapping parses indexstream.xml to get the mapping from anonymous IDs to real names.
-// Returns a map like {"User1": "Jane Smith", "User13": "John Doe", ...}
+// Returns a map like {"User1": "Jane Smith", "User13": "John Doe", ...}.
 func extractUserMapping(rawDir string) map[string]string {
 	mapping := make(map[string]string)
 
@@ -678,7 +683,7 @@ func extractChatLog(rawDir, outputPath string) error {
 			currentName = match[1]
 		}
 		if match := timeRe.FindStringSubmatch(line); len(match) >= 2 {
-			fmt.Sscanf(match[1], "%d", &currentTime)
+			_, _ = fmt.Sscanf(match[1], "%d", &currentTime)
 		}
 
 		// When we hit closing </Object>, output the chat message
@@ -709,7 +714,7 @@ func formatMilliseconds(ms int64) string {
 
 // convertToDirectDownloadURL converts a /system/download URL to a direct download URL.
 // From: /system/download?download-url=/_accountid/recordingid/output/&name=Document.pptx
-// To:   /_accountid/recordingid/output/Document.pptx?download=true
+// To:   /_accountid/recordingid/output/Document.pptx?download=true.
 func convertToDirectDownloadURL(systemURL, filename string) string {
 	// Parse the download-url parameter
 	u, err := url.Parse(systemURL)
@@ -783,7 +788,7 @@ func extractDocumentLinks(rawDir, hostname string) []DocumentInfo {
 			name := nameMatch[1]
 			var size int64
 			if len(sizeMatch) >= 2 {
-				fmt.Sscanf(sizeMatch[1], "%d", &size)
+				_, _ = fmt.Sscanf(sizeMatch[1], "%d", &size)
 			}
 
 			// Only include if it looks like a document download

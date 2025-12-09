@@ -19,7 +19,7 @@ type Runner struct {
 // Locate finds the ffmpeg binary to use. Order:
 // 1) explicit path argument if non-empty
 // 2) ADOBECONNECTDL_FFMPEG environment variable
-// 3) ffmpeg found on PATH
+// 3) ffmpeg found on PATH.
 func Locate(explicit string) (string, error) {
 	if explicit != "" {
 		return explicit, nil
@@ -33,7 +33,9 @@ func Locate(explicit string) (string, error) {
 	if p, err := extractEmbedded(runtime.GOOS, runtime.GOARCH); err == nil {
 		return p, nil
 	}
-	return "", errors.New("ffmpeg not found; set ADOBECONNECTDL_FFMPEG, provide --ffmpeg, or use a supported platform for the embedded binary")
+	return "", errors.New(
+		"ffmpeg not found; set ADOBECONNECTDL_FFMPEG, provide --ffmpeg, or use a supported platform for the embedded binary",
+	)
 }
 
 // New creates a Runner using the located ffmpeg path.

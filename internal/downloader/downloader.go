@@ -25,15 +25,15 @@ type FFmpegRunner interface {
 }
 
 // Logger interface for logging operations.
-// Compatible with github.com/charmbracelet/log.Logger
+// Compatible with github.com/charmbracelet/log.Logger.
 type Logger interface {
-	Debug(msg interface{}, keyvals ...interface{})
-	Info(msg interface{}, keyvals ...interface{})
-	Warn(msg interface{}, keyvals ...interface{})
-	Error(msg interface{}, keyvals ...interface{})
+	Debug(msg any, keyvals ...any)
+	Info(msg any, keyvals ...any)
+	Warn(msg any, keyvals ...any)
+	Error(msg any, keyvals ...any)
 }
 
-// ProgressCallback is called during file downloads with progress updates
+// ProgressCallback is called during file downloads with progress updates.
 type ProgressCallback func(downloaded, total int64)
 
 // Options control how a recording is downloaded.
@@ -346,7 +346,8 @@ func (d *Downloader) fetchPageInfo(ctx context.Context, pageURL, session string,
 	defer resp.Body.Close()
 	log(logger, "page response", "status", resp.StatusCode, "content-type", resp.Header.Get("Content-Type"))
 
-	if resp.StatusCode == 500 || resp.StatusCode == 401 || resp.StatusCode == 403 {
+	if resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusUnauthorized ||
+		resp.StatusCode == http.StatusForbidden {
 		// These status codes typically indicate authentication issues
 		return pageInfo{}, ErrAuthRequired
 	}
@@ -410,7 +411,13 @@ type downloadOptions struct {
 
 // downloadFile downloads a file from the given URL to the destination path.
 // It handles video, binary, and ZIP files with appropriate validation.
-func (d *Downloader) downloadFile(ctx context.Context, fileURL string, dest string, opts downloadOptions, logger Logger) error {
+func (d *Downloader) downloadFile(
+	ctx context.Context,
+	fileURL string,
+	dest string,
+	opts downloadOptions,
+	logger Logger,
+) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
 	if err != nil {
 		return err
@@ -433,11 +440,20 @@ func (d *Downloader) downloadFile(ctx context.Context, fileURL string, dest stri
 	}
 	defer resp.Body.Close()
 
-	log(logger, "download response", "url", fileURL, "status", resp.StatusCode, "content-type", resp.Header.Get("Content-Type"))
+	log(
+		logger,
+		"download response",
+		"url",
+		fileURL,
+		"status",
+		resp.StatusCode,
+		"content-type",
+		resp.Header.Get("Content-Type"),
+	)
 
 	// Handle error status codes
 	if resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("returned 403 (token may be expired or already used)")
+		return errors.New("returned 403 (token may be expired or already used)")
 	}
 	if resp.StatusCode == http.StatusNotFound {
 		return ErrNotFound
@@ -450,7 +466,7 @@ func (d *Downloader) downloadFile(ctx context.Context, fileURL string, dest stri
 	if opts.Kind == fileKindVideo {
 		contentType := resp.Header.Get("Content-Type")
 		if strings.Contains(contentType, "text/html") {
-			return fmt.Errorf("returned HTML instead of video")
+			return errors.New("returned HTML instead of video")
 		}
 	}
 
@@ -516,7 +532,14 @@ func (d *Downloader) downloadFile(ctx context.Context, fileURL string, dest stri
 }
 
 // downloadDocuments downloads all documents to the specified directory.
-func (d *Downloader) downloadDocuments(ctx context.Context, docs []DocumentInfo, destDir string, cookies []*http.Cookie, referer string, logger Logger) int {
+func (d *Downloader) downloadDocuments(
+	ctx context.Context,
+	docs []DocumentInfo,
+	destDir string,
+	cookies []*http.Cookie,
+	referer string,
+	logger Logger,
+) int {
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		log(logger, "create documents dir failed", "error", err)
 		return 0

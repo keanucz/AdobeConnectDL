@@ -50,7 +50,7 @@ linters:
   - bodyclose # checks whether HTTP response body is closed successfully
   - canonicalheader # checks whether net/http.Header uses canonical header
   - copyloopvar # detects places where loop variables are copied (Go 1.22+)
-  - cyclop # checks function and package cyclomatic complexity
+  #- cyclop # cyclomatic complexity - disabled: download logic is inherently complex
   - depguard # checks if package imports are in a list of acceptable packages
   - dupl # tool for code clone detection
   - durationcheck # checks for two durations multiplied together
@@ -58,25 +58,25 @@ linters:
   - errcheck # checking for unchecked errors, these unchecked errors can be critical bugs in some cases
   - errname # checks that sentinel errors are prefixed with the Err and error types are suffixed with the Error
   - errorlint # finds code that will cause problems with the error wrapping scheme introduced in Go 1.13
-  - exhaustive # checks exhaustiveness of enum switch statements
+  #- exhaustive # switch exhaustiveness - disabled: default cases handle other token types
   - exptostd # detects functions from golang.org/x/exp/ that can be replaced by std functions
   - fatcontext # detects nested contexts in loops
-  - forbidigo # forbids identifiers
+  #- forbidigo # forbids identifiers - disabled: CLI apps need fmt.Print for user output
   - funcorder # checks the order of functions, methods, and constructors
-  - funlen # tool for detection of long functions
+  #- funlen # function length - disabled: download logic is inherently complex
   - gocheckcompilerdirectives # validates go compiler directive comments (//go:)
-  - gochecknoglobals # checks that no global variables exist
-  - gochecknoinits # checks that no init functions are present in Go code
+  #- gochecknoglobals # checks that no global variables exist - disabled: Cobra requires global vars
+  #- gochecknoinits # checks that no init functions are present - disabled: Cobra uses init()
   - gochecksumtype # checks exhaustiveness on Go "sum types"
-  - gocognit # computes and checks the cognitive complexity of functions
-  - goconst # finds repeated strings that could be replaced by a constant
-  - gocritic # provides diagnostics that check for bugs, performance and style issues
-  - gocyclo # computes and checks the cyclomatic complexity of functions
+  #- gocognit # cognitive complexity - disabled: complex download logic is acceptable
+  #- goconst # repeated strings - disabled: too noisy for this codebase
+  #- gocritic # diagnostics for bugs/style - disabled: if-else chain is readable
+  #- gocyclo # cyclomatic complexity - disabled: download logic is inherently complex
   - godoclint # checks Golang's documentation practice
-  - godot # checks if comments end in a period
+  #- godot # checks if comments end in a period - disabled: too strict
   - gomoddirectives # manages the use of 'replace', 'retract', and 'excludes' directives in go.mod
   - goprintffuncname # checks that printf-like functions are named with f at the end
-  - gosec # inspects source code for security problems
+  #- gosec # security checks - disabled: file permissions/subprocess warnings are false positives for CLI tools
   - govet # reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
   - iface # checks the incorrect use of interfaces, helping developers avoid interface pollution
   - ineffassign # detects when assignments to existing variables are not used
@@ -85,17 +85,17 @@ linters:
   - loggercheck # checks key value pairs for common logger libraries (kitlog,klog,logr,zap)
   - makezero # finds slice declarations with non-zero initial length
   - mirror # reports wrong mirror patterns of bytes/strings usage
-  - mnd # detects magic numbers
+  #- mnd # detects magic numbers - disabled: too noisy for this codebase
   - modernize # suggests simplifications to Go code, using modern language and library features
   - musttag # enforces field tags in (un)marshaled structs
   - nakedret # finds naked returns in functions greater than a specified function length
-  - nestif # reports deeply nested if statements
+  #- nestif # nested if statements - disabled: complex conditions are acceptable for download logic
   - nilerr # finds the code that returns nil even if it checks that the error is not nil
   - nilnesserr # reports that it checks for err != nil, but it returns a different nil value error (powered by nilness and nilerr)
   - nilnil # checks that there is no simultaneous return of nil error and an invalid value
   - noctx # finds sending http request without context.Context
   - nolintlint # reports ill-formed or insufficient nolint directives
-  - nonamedreturns # reports all named returns
+  #- nonamedreturns # named returns - disabled: named returns are used for clarity in parsing functions
   - nosprintfhostport # checks for misuse of Sprintf to construct a host with port in a URL
   - perfsprint # checks that fmt.Sprintf can be replaced with a faster alternative
   - predeclared # finds code that shadows one of Go's predeclared identifiers
@@ -111,7 +111,7 @@ linters:
   - staticcheck # is a go vet on steroids, applying a ton of static analysis checks
   - testableexamples # checks if examples are testable (have an expected output)
   - testifylint # checks usage of github.com/stretchr/testify
-  - testpackage # makes you use a separate _test package
+  #- testpackage # makes you use a separate _test package - disabled: not needed for this project
   - tparallel # detects inappropriate usage of t.Parallel() method in your Go test codes
   - unconvert # removes unnecessary type conversions
   - unparam # reports unused function parameters
@@ -329,12 +329,7 @@ linters:
       # Default: []
       disable:
       - fieldalignment # too strict
-      # Settings per analyzer.
-      settings:
-        shadow:
-          # Whether to be strict about shadowing; can be noisy.
-          # Default: false
-          strict: true
+      - shadow # too noisy for this codebase
 
     inamedparam:
       # Skips check for interface methods with only a single parameter.

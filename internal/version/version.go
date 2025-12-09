@@ -12,11 +12,11 @@ import (
 //	  -X github.com/keanucz/AdobeConnectDL/internal/version.Commit=abc123 \
 //	  -X github.com/keanucz/AdobeConnectDL/internal/version.Date=2025-01-01T00:00:00Z"
 var (
-	// Version is the semantic version (e.g., v1.0.0)
+	// Version is the semantic version (e.g., v1.0.0).
 	Version = "dev"
-	// Commit is the git commit SHA
+	// Commit is the git commit SHA.
 	Commit = "unknown"
-	// Date is the build date
+	// Date is the build date.
 	Date = "unknown"
 )
 

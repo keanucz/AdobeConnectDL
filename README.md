@@ -4,9 +4,13 @@
 
 <h1 align="center">AdobeConnectDL</h1>
 
-[![GitHub release](https://img.shields.io/github/v/release/keanucz/AdobeConnectDL?style=flat-square)](https://github.com/keanucz/AdobeConnectDL/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/keanucz/AdobeConnectDL/ci.yml?branch=main&style=flat-square&label=build)](https://github.com/keanucz/AdobeConnectDL/actions)
-[![License](https://img.shields.io/github/license/keanucz/AdobeConnectDL?style=flat-square)](./LICENSE)
+<p align="center">
+  <a href="https://github.com/keanucz/AdobeConnectDL/releases"><img src="https://img.shields.io/github/v/release/keanucz/AdobeConnectDL?style=flat-square" alt="GitHub release"></a>
+  <a href="https://github.com/keanucz/AdobeConnectDL/actions/workflows/build-and-release.yaml"><img src="https://github.com/keanucz/AdobeConnectDL/actions/workflows/build-and-release.yaml/badge.svg" alt="Build"></a>
+  <a href="https://github.com/keanucz/AdobeConnectDL/actions/workflows/test.yaml"><img src="https://github.com/keanucz/AdobeConnectDL/actions/workflows/test.yaml/badge.svg" alt="Test"></a>
+  <a href="https://github.com/keanucz/AdobeConnectDL/actions/workflows/lint.yaml"><img src="https://github.com/keanucz/AdobeConnectDL/actions/workflows/lint.yaml/badge.svg" alt="Lint"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/keanucz/AdobeConnectDL?style=flat-square" alt="License"></a>
+</p>
 
 This is a Go CLI (using Cobra) that automatically grabs the MP4 and VTT URLs from an Adobe Connect recording page, downloads them, merges everything together, and also spits out a nice `.txt` transcript and other metadata alongside the recording. 🎬
 
