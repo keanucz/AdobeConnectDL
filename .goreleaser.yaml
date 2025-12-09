@@ -96,6 +96,7 @@ release:
 kos:
 - id: adobeconnectdl
   build: adobeconnectdl
+  main: .
   base_image: cgr.dev/chainguard/static
   repositories:
   - ghcr.io/keanucz/adobeconnectdl
