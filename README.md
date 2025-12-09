@@ -1,7 +1,8 @@
-<p align="center" style="display: flex; align-items: center; justify-content: center; gap: 12px;">
+<p align="center">
   <img src="./pictures/logo.svg" alt="AdobeConnectDL logo" height="80" />
-  <span style="font-size: 2.5rem; font-weight: 700; line-height: 1;">AdobeConnectDL</span>
 </p>
+
+<h1 align="center">AdobeConnectDL</h1>
 
 [![GitHub release](https://img.shields.io/github/v/release/keanucz/AdobeConnectDL?style=flat-square)](https://github.com/keanucz/AdobeConnectDL/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/keanucz/AdobeConnectDL/ci.yml?branch=main&style=flat-square&label=build)](https://github.com/keanucz/AdobeConnectDL/actions)
