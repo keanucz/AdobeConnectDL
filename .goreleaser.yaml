@@ -93,15 +93,21 @@ release:
 
     Compare the output with the checksums in `checksums.txt`.
 
-dockers_v2:
-- images:
-  - "ghcr.io/keanucz/adobeconnectdl"
+kos:
+- id: adobeconnectdl
+  build: adobeconnectdl
+  base_image: cgr.dev/chainguard/static
+  repositories:
+  - ghcr.io/keanucz/adobeconnectdl
+  platforms:
+  - linux/amd64
+  - linux/arm64
   tags:
-  - "v{{ .Version }}"
-  - "{{ if not .IsNightly }}latest{{ end }}"
-  dockerfile: Dockerfile.goreleaser
-  # Disable SBOM - not needed for this project
-  sbom: "false"
+  - "{{.Version}}"
+  - "{{if not .Prerelease}}latest{{end}}"
+  creation_time: "{{.CommitTimestamp}}"
+  sbom: none
+  bare: true
   labels:
     "org.opencontainers.image.created": "{{.Date}}"
     "org.opencontainers.image.title": "{{.ProjectName}}"
