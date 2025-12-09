@@ -1,3 +1,5 @@
+//go:build embed_ffmpeg
+
 package ffmpegexec
 
 import (

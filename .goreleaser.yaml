@@ -21,6 +21,8 @@ builds:
   goarch:
   - amd64
   - arm64
+  tags:
+  - embed_ffmpeg
   ldflags:
   - -s -w
   - -X github.com/keanucz/AdobeConnectDL/internal/version.Version={{.Version}}
@@ -29,11 +31,15 @@ builds:
 
 archives:
 - id: default
-  format: tar.gz
+  ids:
+  - adobeconnectdl
+  formats:
+  - tar.gz
   name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
   format_overrides:
   - goos: windows
-    format: zip
+    formats:
+    - zip
   files:
   - LICENSE
   - README.md
@@ -87,15 +93,16 @@ release:
 
     Compare the output with the checksums in `checksums.txt`.
 
-dockers:
-- image_templates:
-  - "ghcr.io/keanucz/adobeconnectdl:{{ .Version }}"
-  - "ghcr.io/keanucz/adobeconnectdl:latest"
-  dockerfile: Dockerfile
-  build_flag_templates:
-  - "--pull"
-  - "--label=org.opencontainers.image.created={{.Date}}"
-  - "--label=org.opencontainers.image.title={{.ProjectName}}"
-  - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-  - "--label=org.opencontainers.image.version={{.Version}}"
-  - "--platform=linux/amd64"
+dockers_v2:
+- images:
+  - "ghcr.io/keanucz/adobeconnectdl"
+  tags:
+  - "v{{ .Version }}"
+  - "{{ if not .IsNightly }}latest{{ end }}"
+  dockerfile: Dockerfile.goreleaser
+  labels:
+    "org.opencontainers.image.created": "{{.Date}}"
+    "org.opencontainers.image.title": "{{.ProjectName}}"
+    "org.opencontainers.image.revision": "{{.FullCommit}}"
+    "org.opencontainers.image.version": "{{.Version}}"
+    "org.opencontainers.image.source": "{{.GitURL}}"

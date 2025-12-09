@@ -1,0 +1,26 @@
+# Runtime stage for GoReleaser dockers_v2
+# GoReleaser places binaries in $TARGETPLATFORM/ subdirectories
+FROM alpine:3.20
+
+ARG TARGETPLATFORM
+
+# Install ffmpeg for subtitle embedding and ca-certificates for HTTPS
+RUN apk add --no-cache ffmpeg ca-certificates
+
+# Create non-root user
+RUN adduser -D -u 1000 appuser
+
+WORKDIR /app
+
+# Copy binary from GoReleaser context (binaries are in $TARGETPLATFORM/)
+COPY ${TARGETPLATFORM}/adobeconnectdl /usr/local/bin/adobeconnectdl
+
+# Create output directory
+RUN mkdir -p /output && chown appuser:appuser /output
+
+USER appuser
+
+WORKDIR /output
+
+ENTRYPOINT ["adobeconnectdl"]
+CMD ["--help"]
