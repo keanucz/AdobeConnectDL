@@ -110,6 +110,20 @@ For each recording, you’ll typically get a directory like:
 - 🧾 `metadata.json` – assorted recording metadata
 - 🔍 `raw.zip` / `raw/` – original Adobe Connect assets (FLV/XML etc.), if you want to poke at them
 
+## 🎬 FFmpeg binaries
+
+Embedded `ffmpeg` binaries shipped with AdobeConnectDL are taken from:
+
+- macOS (Apple silicon & Intel), ffmpeg **8.0**: [osxexperts.net](https://osxexperts.net/)
+- Windows, ffmpeg **8.0.1**: [Gyan FFmpeg builds](https://www.gyan.dev/ffmpeg/builds/)
+- Linux amd64, ffmpeg build **autobuild-2025-12-08-12-55**: [BtbN FFmpeg builds](https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2025-12-08-12-55)
+
+### FFmpeg versions & licenses
+
+- All embedded binaries above are prebuilt distributions of FFmpeg obtained from the listed sources.
+- FFmpeg itself is licensed under the LGPL/GPL; see the official FFmpeg license page for details:
+   - https://ffmpeg.org/legal.html
+
 ## 🧠 Technical details (under the hood)
 
 There are basically two ways to download Adobe Connect recordings:

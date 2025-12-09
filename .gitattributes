@@ -1,3 +1,4 @@
 ffmpeg* filter=lfs diff=lfs merge=lfs -text
 *.ffpreset filter=lfs diff=lfs merge=lfs -text
+ffmpeg.exe filter=lfs diff=lfs merge=lfs -text
 internal/ffmpegexec/*.go !text !filter !merge !diff
