@@ -1,0 +1,62 @@
+<!--This is the opening comment-->
+<root>
+  <Signature><![CDATA[FLV]]></Signature>
+  <Version><![CDATA[1]]></Version>
+  <Flag><![CDATA[data]]></Flag>
+  <DataPos><![CDATA[9]]></DataPos>
+  <Message time="0" type="data">
+    <Method><![CDATA[onMetaData]]></Method>
+    <Object>
+      <attendees>
+        <Object>
+          <activeProductNotifIds>
+            <String><![CDATA[3]]></String>
+          </activeProductNotifIds>
+          <anonymousName><![CDATA[User1]]></anonymousName>
+          <customFields>
+            <first-name><![CDATA[Jane]]></first-name>
+            <last-name><![CDATA[Doe]]></last-name>
+          </customFields>
+          <fullName><![CDATA[Tech Jane Doe]]></fullName>
+        </Object>
+        <Object>
+          <anonymousName><![CDATA[User2]]></anonymousName>
+          <customFields>
+            <first-name><![CDATA[James]]></first-name>
+            <last-name><![CDATA[Lewis]]></last-name>
+          </customFields>
+          <fullName><![CDATA[James Lewis]]></fullName>
+        </Object>
+        <Object>
+          <anonymousName><![CDATA[User3]]></anonymousName>
+          <customFields>
+            <first-name><![CDATA[Alex]]></first-name>
+            <last-name><![CDATA[Adams]]></last-name>
+          </customFields>
+          <fullName><![CDATA[Alex Adams]]></fullName>
+        </Object>
+        <Object>
+          <anonymousName><![CDATA[User4]]></anonymousName>
+          <customFields>
+            <first-name><![CDATA[Oliver]]></first-name>
+            <last-name><![CDATA[Green]]></last-name>
+          </customFields>
+          <fullName><![CDATA[Oliver Green]]></fullName>
+        </Object>
+        <Object>
+          <anonymousName><![CDATA[User5]]></anonymousName>
+          <customFields>
+            <first-name><![CDATA[Ashley]]></first-name>
+            <last-name><![CDATA[Cooper]]></last-name>
+          </customFields>
+          <fullName><![CDATA[Ashley Cooper]]></fullName>
+        </Object>
+      </attendees>
+    </Object>
+  </Message>
+  <Message time="100" type="data">
+    <Method><![CDATA[playEvent]]></Method>
+    <String><![CDATA[__start__]]></String>
+    <Number><![CDATA[0.0]]></Number>
+  </Message>
+</root>

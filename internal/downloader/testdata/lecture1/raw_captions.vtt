@@ -1,0 +1,25 @@
+WEBVTT
+
+00:00:05.000 --> 00:00:10.000
+@:@User1@:@ Welcome everyone to today's lecture on testing.
+
+00:00:12.000 --> 00:00:18.000
+@:@User1@:@ Today we will cover unit testing fundamentals.
+
+00:00:20.000 --> 00:00:25.000
+@:@User2@:@ Could you explain the difference between unit tests and integration tests?
+
+00:00:28.000 --> 00:00:35.000
+@:@User1@:@ Great question. Unit tests focus on individual components.
+
+00:00:38.000 --> 00:00:45.000
+@:@User3@:@ Are there any specific frameworks you recommend?
+
+00:00:48.000 --> 00:00:55.000
+@:@User1@:@ Yes, the standard library testing package is excellent.
+
+00:01:00.000 --> 00:01:08.000
+@:@User4@:@ What about mocking dependencies?
+
+00:01:10.000 --> 00:01:18.000
+@:@User1@:@ There are several approaches we can discuss.

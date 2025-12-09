@@ -1,0 +1,25 @@
+<!--This is the opening comment-->
+<root>
+  <Signature><![CDATA[FLV]]></Signature>
+  <Version><![CDATA[1]]></Version>
+  <Flag><![CDATA[data]]></Flag>
+  <DataPos><![CDATA[9]]></DataPos>
+  <Message time="120000" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <filePath><![CDATA[/content/shared/materials/testing_guide.pdf]]></filePath>
+      <fileName><![CDATA[testing_guide.pdf]]></fileName>
+      <fileSize><![CDATA[1048576]]></fileSize>
+      <userName><![CDATA[Jane Doe]]></userName>
+    </Object>
+  </Message>
+  <Message time="240000" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <filePath><![CDATA[/content/shared/materials/sample_code.zip]]></filePath>
+      <fileName><![CDATA[sample_code.zip]]></fileName>
+      <fileSize><![CDATA[512000]]></fileSize>
+      <userName><![CDATA[Jane Doe]]></userName>
+    </Object>
+  </Message>
+</root>

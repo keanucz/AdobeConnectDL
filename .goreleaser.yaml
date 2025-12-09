@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+
+project_name: adobeconnectdl
+
+before:
+  hooks:
+  - go mod tidy
+
+builds:
+- id: adobeconnectdl
+  main: ./main.go
+  binary: adobeconnectdl
+  env:
+  - CGO_ENABLED=0
+  goos:
+  - linux
+  - windows
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  ldflags:
+  - -s -w
+  - -X github.com/keanucz/AdobeConnectDL/internal/version.Version={{.Version}}
+  - -X github.com/keanucz/AdobeConnectDL/internal/version.Commit={{.ShortCommit}}
+  - -X github.com/keanucz/AdobeConnectDL/internal/version.Date={{.Date}}
+
+archives:
+- id: default
+  format: tar.gz
+  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  format_overrides:
+  - goos: windows
+    format: zip
+  files:
+  - LICENSE
+  - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+    - "^docs:"
+    - "^test:"
+    - "^ci:"
+    - "^chore:"
+    - Merge pull request
+    - Merge branch
+  groups:
+  - title: "New Features"
+    regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+    order: 0
+  - title: "Bug Fixes"
+    regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+    order: 1
+  - title: "Other Changes"
+    order: 999
+
+release:
+  github:
+    owner: keanucz
+    name: AdobeConnectDL
+  prerelease: auto
+  draft: false
+  footer: |
+    ## Verify Download
+
+    To verify the integrity of your download, compare the SHA256 checksum:
+
+    ```bash
+    # Linux/macOS
+    sha256sum adobeconnectdl_{{ .Version }}_<os>_<arch>.tar.gz
+
+    # Windows (PowerShell)
+    Get-FileHash adobeconnectdl_{{ .Version }}_windows_amd64.zip -Algorithm SHA256
+    ```
+
+    Compare the output with the checksums in `checksums.txt`.
+
+dockers:
+- image_templates:
+  - "ghcr.io/keanucz/adobeconnectdl:{{ .Version }}"
+  - "ghcr.io/keanucz/adobeconnectdl:latest"
+  dockerfile: Dockerfile
+  build_flag_templates:
+  - "--pull"
+  - "--label=org.opencontainers.image.created={{.Date}}"
+  - "--label=org.opencontainers.image.title={{.ProjectName}}"
+  - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+  - "--label=org.opencontainers.image.version={{.Version}}"
+  - "--platform=linux/amd64"

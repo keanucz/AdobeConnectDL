@@ -1,0 +1,50 @@
+<!--This is the opening comment-->
+<root>
+  <Signature><![CDATA[FLV]]></Signature>
+  <Version><![CDATA[1]]></Version>
+  <Flag><![CDATA[data]]></Flag>
+  <DataPos><![CDATA[9]]></DataPos>
+  <Message time="0" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <CYCLEFORMAT>
+        <MSG><![CDATA[[Tech  Jane Doe] has joined the stage.]]></MSG>
+      </CYCLEFORMAT>
+    </Object>
+  </Message>
+  <Message time="5000" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <CYCLEFORMAT>
+        <MSG><![CDATA[[James Lewis] has joined the stage.]]></MSG>
+      </CYCLEFORMAT>
+    </Object>
+  </Message>
+  <Message time="10000" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <iconType><![CDATA[chat]]></iconType>
+      <label><![CDATA[Hello all]]></label>
+      <name><![CDATA[Ashley Cooper]]></name>
+      <time><![CDATA[10000]]></time>
+    </Object>
+  </Message>
+  <Message time="15000" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <iconType><![CDATA[chat]]></iconType>
+      <label><![CDATA[That makes sense, thanks!]]></label>
+      <name><![CDATA[Alex Adams]]></name>
+      <time><![CDATA[15000]]></time>
+    </Object>
+  </Message>
+  <Message time="20000" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <iconType><![CDATA[chat]]></iconType>
+      <label><![CDATA[Can you repeat that?]]></label>
+      <name><![CDATA[Oliver Green]]></name>
+      <time><![CDATA[20000]]></time>
+    </Object>
+  </Message>
+</root>

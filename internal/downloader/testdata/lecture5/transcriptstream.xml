@@ -1,0 +1,32 @@
+<!--This is the opening comment-->
+<root>
+  <Signature><![CDATA[FLV]]></Signature>
+  <Version><![CDATA[1]]></Version>
+  <Flag><![CDATA[data]]></Flag>
+  <DataPos><![CDATA[9]]></DataPos>
+  <Message time="0" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <CYCLEFORMAT>
+        <MSG><![CDATA[[Tech - Sarah Miller] has joined the stage.]]></MSG>
+      </CYCLEFORMAT>
+    </Object>
+  </Message>
+  <Message time="5000" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <CYCLEFORMAT>
+        <MSG><![CDATA[[David Brown] has joined the stage.]]></MSG>
+      </CYCLEFORMAT>
+    </Object>
+  </Message>
+  <Message time="10000" type="cycleEntry">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <CYCLEFORMAT>
+        <MSG><![CDATA[Good morning everyone]]></MSG>
+        <SND><![CDATA[Emma Wilson]]></SND>
+      </CYCLEFORMAT>
+    </Object>
+  </Message>
+</root>

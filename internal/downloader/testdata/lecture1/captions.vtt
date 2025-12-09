@@ -1,0 +1,19 @@
+WEBVTT
+
+00:00:05.000 --> 00:00:08.000
+Jane Doe: Welcome everyone to today's session on unit testing.
+
+00:00:10.000 --> 00:00:15.000
+Jane Doe: Let's start by discussing why testing is important.
+
+00:00:20.000 --> 00:00:25.000
+John Smith: Could you explain the difference between unit tests and integration tests?
+
+00:00:28.000 --> 00:00:35.000
+Jane Doe: Great question. Unit tests focus on individual components in isolation.
+
+00:00:38.000 --> 00:00:45.000
+Alice Johnson: Are there any specific frameworks you recommend for Go?
+
+00:00:48.000 --> 00:00:55.000
+Jane Doe: Yes, the standard library testing package is excellent, along with testify for assertions.

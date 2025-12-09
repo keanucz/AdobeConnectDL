@@ -1,0 +1,13 @@
+<!--This is the opening comment-->
+<root>
+  <Signature><![CDATA[FLV]]></Signature>
+  <Version><![CDATA[1]]></Version>
+  <Flag><![CDATA[data]]></Flag>
+  <DataPos><![CDATA[9]]></DataPos>
+  <Message time="0" type="data">
+    <Method><![CDATA[cycleEntry]]></Method>
+    <Object>
+      <newValue><![CDATA[<TEXTFORMAT LEADING="2"><P ALIGN="LEFT"><FONT FACE="ADOBE CLEAN" SIZE="14" COLOR="#4b4b4b" LETTERSPACING="0" KERNING="0">Module: Software Engineering 101</FONT></P></TEXTFORMAT><TEXTFORMAT LEADING="2"><P ALIGN="LEFT"><FONT FACE="ADOBE CLEAN" SIZE="14" COLOR="#4b4b4b" LETTERSPACING="0" KERNING="0">Lecturer: Jane Doe</FONT></P></TEXTFORMAT><TEXTFORMAT LEADING="2"><P ALIGN="LEFT"><FONT FACE="ADOBE CLEAN" SIZE="14" COLOR="#4b4b4b" LETTERSPACING="0" KERNING="0">Topic: Introduction to Testing</FONT></P></TEXTFORMAT>]]></newValue>
+    </Object>
+  </Message>
+</root>
