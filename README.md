@@ -12,9 +12,9 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/keanucz/AdobeConnectDL?style=flat-square" alt="License"></a>
 </p>
 
-This is a Go CLI (using Cobra) that automatically grabs the MP4 and VTT URLs from an Adobe Connect recording page, downloads them, merges everything together, and also spits out a nice `.txt` transcript and other metadata alongside the recording. 🎬
+This is a Go CLI (using Cobra) that automatically grabs the MP4 and VTT URLs from an Adobe Connect recording page, downloads them, merges everything together, and also spits out a nice `.txt` transcript and other metadata alongside the recording.
 
-I wrote this because my university uses Adobe Connect to host lectures and store recordings, and for some reason you can only view recordings online, not download them. Given that I'm sometimes in places with no Internet access or terrible connectivity, I built this tool to solve my own (and my fellow students') woes so we can watch our lectures anywhere, any time. 🎓
+I wrote this because my university uses Adobe Connect to host lectures and store recordings, and for some reason you can only view recordings online, not download them. Given that I'm sometimes in places with no Internet access or terrible connectivity, I built this tool to solve my own (and my fellow students') woes so we can watch our lectures anywhere, any time.
 
 ## ✨ What it does
 
@@ -37,7 +37,7 @@ For each Adobe Connect recording URL you give it, AdobeConnectDL will:
 
    Grab the binary from the releases page for your platform. ⬇️  
 
-   I’ve embedded a copy of `ffmpeg`/`ffprobe` for each platform, so you shouldn’t need to install any external dependencies.
+   I’ve embedded a copy of `ffmpeg` for most platforms, so you shouldn’t need to install any external dependencies.
 
 2. **Open the recordings list**
 
@@ -138,14 +138,14 @@ There are basically two ways to download Adobe Connect recordings:
 2. **“Raw assets” ZIP + reconstruction (the painful way)**  
    Download a ZIP file containing all the original Flash Video (FLV) chunks and XML files, then try to reconstruct the timeline from that.
 
-I originally explored option 2 (and so did Codex). It turns out that trying to combine several randomly ordered FLV files into a coherent timeline is... not fun.
+I originally explored option 2 (and so did Codex). It turns out that trying to combine several randomly ordered FLV files into a single mp4 is... not fun.
 
-However, that ZIP **does** contain some useful extra data: the transcript with **unanonymised names** and timestamps for the chat window, plus various session metadata and attachments. That’s why the tool still downloads and keeps those raw assets: they’re handy for preserving captions, chat logs, transcripts, attached documents, and so on.
+However, that ZIP **does** contain some useful extra data: the transcript with unanonymised names and timestamps for the chat window, plus various session metadata and attachments. That’s why the tool still downloads and keeps those raw assets, as they’re handy for preserving captions, chat logs, transcripts, attached documents, and so on.
 
-Since Adobe Connect already provides an MP4 stored in S3 anyway, it’s far easier (and much less fragile) to:
+Since Adobe Connect already provides an MP4 stored in S3 anyway, I found it far easier to:
 
 - Use the MP4 as the canonical recording
 - Pull subtitles, chat logs, transcripts, and documents from the raw assets
-- “Pad” that extra metadata around the clean MP4 output
+- Embed the subtitles into the MP4
 
-This gives you a single, portable video file plus all the sidecar data you might want for later processing or archival. 📦
+This gives you a single, portable video file plus all the sidecar data you might want for later processing or archival.
