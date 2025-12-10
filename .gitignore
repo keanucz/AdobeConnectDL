@@ -32,3 +32,6 @@ go.work.sum
 # .vscode/
 
 adobeconnectdl
+
+# GoReleaser output directory
+dist/

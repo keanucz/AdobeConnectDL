@@ -157,6 +157,7 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 	// Start ZIP download immediately to a temp location
 	// We'll move it to the final location once we know the title
 	tempZipPath := filepath.Join(baseOutputDir, fmt.Sprintf(".%s_temp.zip", info.ID))
+	tempMP4Path := filepath.Join(baseOutputDir, fmt.Sprintf(".%s_temp.mp4", info.ID))
 	var zipDownloadErr error
 	var zipDownloadDone = make(chan struct{})
 
@@ -242,31 +243,35 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 	mp4Path := filepath.Join(rootDir, "recording.mp4")
 	zipPath := filepath.Join(rootDir, "raw.zip")
 
-	// Start MP4 download (now that we have the video URL from page info)
-	var wg sync.WaitGroup
+	// Start MP4 download (now that we have the video URL from page info) to a temp path
 	var mp4ResultCh <-chan DownloadResult
 	if pageInfo.VideoSrc != "" {
-		if d.pool != nil {
-			// Use shared download pool
-			logInfo(logger, "downloading video via pool", "url", pageInfo.VideoSrc)
-			mp4ResultCh = d.pool.SubmitMP4(ctx, pageInfo.VideoSrc, mp4Path, referer, cookies, opts.OnProgress)
-		} else {
-			// Use direct goroutine
-			wg.Go(func() {
+		startMP4 := func(dest string) <-chan DownloadResult {
+			if d.pool != nil {
+				logInfo(logger, "downloading video via pool", "url", pageInfo.VideoSrc)
+				return d.pool.SubmitMP4(ctx, pageInfo.VideoSrc, dest, referer, cookies, opts.OnProgress)
+			}
+
+			resultCh := make(chan DownloadResult, 1)
+			go func() {
 				logInfo(logger, "downloading video", "url", pageInfo.VideoSrc)
-				if err := d.downloadFile(ctx, pageInfo.VideoSrc, mp4Path, downloadOptions{
+				if err := d.downloadFile(ctx, pageInfo.VideoSrc, dest, downloadOptions{
 					Cookies:    cookies,
 					Referer:    referer,
 					Kind:       fileKindVideo,
 					OnProgress: opts.OnProgress,
 				}, logger); err != nil {
 					log(logger, "video src download failed", "error", err)
+					resultCh <- DownloadResult{Err: err}
 				} else {
-					result.MP4Path = mp4Path
-					log(logger, "mp4 downloaded via video src", "path", mp4Path)
+					resultCh <- DownloadResult{Path: dest}
 				}
-			})
+				close(resultCh)
+			}()
+			return resultCh
 		}
+
+		mp4ResultCh = startMP4(tempMP4Path)
 	}
 
 	// Wait for ZIP download to complete
@@ -290,7 +295,7 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 		// Move temp zip to final location
 		if err := os.Rename(tempZipPath, zipPath); err != nil {
 			// If rename fails (cross-device), try copy
-			if copyErr := copyFile(tempZipPath, zipPath); copyErr != nil {
+			if copyErr := copyFile(zipPath, tempZipPath); copyErr != nil {
 				log(logger, "zip move/copy failed", "error", copyErr)
 				zipErr = copyErr
 			} else {
@@ -378,19 +383,36 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 		close(extractDone)
 	}
 
-	// Wait for MP4 download to complete
+	// Wait for MP4 download to complete and move it into place
+	var mp4DownloadErr error
+	var mp4DownloadedPath string
 	if mp4ResultCh != nil {
-		// Pool mode - wait for result from channel
 		mp4Res := <-mp4ResultCh
-		if mp4Res.Err != nil {
-			log(logger, "video src download failed", "error", mp4Res.Err)
+		mp4DownloadErr = mp4Res.Err
+		mp4DownloadedPath = mp4Res.Path
+		if mp4DownloadErr != nil {
+			log(logger, "video src download failed", "error", mp4DownloadErr)
+			os.Remove(tempMP4Path)
+		}
+	}
+
+	if mp4DownloadErr == nil && mp4DownloadedPath != "" {
+		if err := os.Rename(mp4DownloadedPath, mp4Path); err != nil {
+			if copyErr := copyFile(mp4Path, mp4DownloadedPath); copyErr != nil {
+				log(logger, "mp4 move/copy failed", "error", copyErr)
+			} else {
+				os.Remove(mp4DownloadedPath)
+				result.MP4Path = mp4Path
+				log(logger, "mp4 downloaded via video src", "path", mp4Path)
+			}
 		} else {
 			result.MP4Path = mp4Path
 			log(logger, "mp4 downloaded via video src", "path", mp4Path)
 		}
-	} else {
-		// Direct goroutine mode
-		wg.Wait()
+	} else if mp4DownloadedPath != "" {
+		os.Remove(mp4DownloadedPath)
+	} else if mp4DownloadErr != nil && tempMP4Path != "" {
+		os.Remove(tempMP4Path)
 	}
 
 	// Check MP4 result
