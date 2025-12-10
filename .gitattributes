@@ -1,8 +1,5 @@
-# FFmpeg binaries (LFS tracked) - only actual binaries, not .go source files
-**/bin/ffmpeg filter=lfs diff=lfs merge=lfs -text
-**/bin/ffmpeg.exe filter=lfs diff=lfs merge=lfs -text
-**/macos/ffmpeg filter=lfs diff=lfs merge=lfs -text
-*.ffpreset filter=lfs diff=lfs merge=lfs -text
-
 # Ensure .go files are NOT tracked by LFS
 *.go !filter !diff !merge text
+
+# Binary files (not using LFS - compressed 7z archives are small enough)
+*.7z binary

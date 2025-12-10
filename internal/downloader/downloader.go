@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -11,17 +12,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // HTTPClient describes the subset of http.Client used by the downloader.
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
-}
-
-// FFmpegRunner describes the subset of ffmpegexec.Runner used for subtitle embedding.
-type FFmpegRunner interface {
-	Run(ctx context.Context, args []string, stdout, stderr io.Writer) error
-	Path() string
 }
 
 // Logger interface for logging operations.
@@ -36,14 +32,39 @@ type Logger interface {
 // ProgressCallback is called during file downloads with progress updates.
 type ProgressCallback func(downloaded, total int64)
 
+// SubtitleEmbedder is an interface for embedding subtitles into video files.
+// This allows the downloader to optionally embed subtitles without importing mp4box directly.
+type SubtitleEmbedder interface {
+	EmbedSubtitles(ctx context.Context, mp4Path, vttPath, lang string, stdout, stderr io.Writer) error
+}
+
 // Options control how a recording is downloaded.
 type Options struct {
 	OutputDir  string
 	Session    string
-	Log        Logger // Structured logger (compatible with charmbracelet/log)
-	FFmpeg     FFmpegRunner
+	Log        Logger           // Structured logger (compatible with charmbracelet/log)
 	OnProgress ProgressCallback // Called during MP4 download with progress
 	Overwrite  bool             // If true, overwrite existing directories without prompting
+	MP4Box     SubtitleEmbedder // Optional: embed subtitles into MP4 using MP4Box
+}
+
+// progressReader wraps an io.Reader and reports progress.
+type progressReader struct {
+	reader     io.Reader
+	total      int64
+	downloaded int64
+	onProgress ProgressCallback
+}
+
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.reader.Read(p)
+	if n > 0 {
+		pr.downloaded += int64(n)
+		if pr.onProgress != nil {
+			pr.onProgress(pr.downloaded, pr.total)
+		}
+	}
+	return n, err
 }
 
 // Result captures what was downloaded.
@@ -72,11 +93,18 @@ var ErrDirectoryExists = errors.New("output directory already exists")
 // Downloader coordinates downloading recordings.
 type Downloader struct {
 	client HTTPClient
+	pool   *DownloadPool // Optional shared download pool
 }
 
 // New creates a Downloader.
 func New(client HTTPClient) *Downloader {
 	return &Downloader{client: client}
+}
+
+// NewWithPool creates a Downloader that uses a shared download pool.
+// The pool should be started before use and stopped when done.
+func NewWithPool(client HTTPClient, pool *DownloadPool) *Downloader {
+	return &Downloader{client: client, pool: pool}
 }
 
 // Download grabs the MP4 and VTT assets for the provided recording URL.
@@ -102,18 +130,76 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 		log(logger, "using session token", "length", len(session))
 	}
 
-	pageInfo, pageErr := d.fetchPageInfo(ctx, rawURL, session, logger)
+	// Create initial cookies for ZIP download (session-based)
+	initialCookies := mergeCookies(session, nil)
 
-	title := info.ID
+	// Use recording ID as initial title
+	title := sanitize(info.ID)
+	baseOutputDir := opts.OutputDir
+	if baseOutputDir == "" {
+		baseOutputDir = "."
+	}
+
+	// ZIP URL is known immediately from the recording ID
+	zipURL := fmt.Sprintf("%s/output/%s.zip?download=zip", info.BaseURL, info.ID)
+
+	// Start page info fetch and ZIP download concurrently
+	type pageResult struct {
+		info pageInfo
+		err  error
+	}
+	pageCh := make(chan pageResult, 1)
+	go func() {
+		pi, perr := d.fetchPageInfo(ctx, rawURL, session, logger)
+		pageCh <- pageResult{info: pi, err: perr}
+	}()
+
+	// Start ZIP download immediately to a temp location
+	// We'll move it to the final location once we know the title
+	tempZipPath := filepath.Join(baseOutputDir, fmt.Sprintf(".%s_temp.zip", info.ID))
+	var zipDownloadErr error
+	var zipDownloadDone = make(chan struct{})
+
+	if d.pool != nil {
+		// Use shared download pool
+		zipResult := d.pool.SubmitZip(ctx, zipURL, tempZipPath, rawURL, initialCookies)
+		go func() {
+			defer close(zipDownloadDone)
+			logInfo(logger, "downloading recording data via pool", "url", zipURL)
+			res := <-zipResult
+			zipDownloadErr = res.Err
+		}()
+	} else {
+		// Use direct goroutine
+		go func() {
+			defer close(zipDownloadDone)
+			logInfo(logger, "downloading recording data", "url", zipURL)
+			if err := d.downloadFile(ctx, zipURL, tempZipPath, downloadOptions{
+				Cookies: initialCookies,
+				Referer: rawURL,
+				Kind:    fileKindZip,
+			}, logger); err != nil {
+				zipDownloadErr = err
+			}
+		}()
+	}
+
+	// Wait for page info to get the real title
+	pageRes := <-pageCh
+	pageInfo := pageRes.info
+	pageErr := pageRes.err
+
+	// Update title if we got a better one from the page
 	if pageErr == nil && pageInfo.Title != "" {
 		title = sanitize(pageInfo.Title)
-	} else {
-		title = sanitize(title)
 	}
 	if pageErr != nil {
 		log(logger, "fetch page info error", "error", pageErr)
 		// Check if this is an authentication error
 		if errors.Is(pageErr, ErrAuthRequired) {
+			// Clean up temp zip if it exists
+			os.Remove(tempZipPath)
+			<-zipDownloadDone
 			return Result{}, fmt.Errorf("%w\n\n"+
 				"To access private recordings, you need to include a session token in the URL.\n"+
 				"Example: https://your-domain.adobeconnect.com/recording-id/?session=YOUR_SESSION_TOKEN\n\n"+
@@ -126,20 +212,21 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 	}
 	log(logger, "resolved title", "title", title)
 
-	rootDir := opts.OutputDir
-	if rootDir == "" {
-		rootDir = "."
-	}
-	rootDir = filepath.Join(rootDir, title)
+	rootDir := filepath.Join(baseOutputDir, title)
 
 	// Check if directory exists and has files
 	if !opts.Overwrite {
 		if entries, err := os.ReadDir(rootDir); err == nil && len(entries) > 0 {
+			// Clean up temp zip
+			os.Remove(tempZipPath)
+			<-zipDownloadDone
 			return Result{Title: title, RootDir: rootDir}, fmt.Errorf("%w: %s", ErrDirectoryExists, rootDir)
 		}
 	}
 
 	if err := os.MkdirAll(rootDir, 0o755); err != nil {
+		os.Remove(tempZipPath)
+		<-zipDownloadDone
 		return Result{}, fmt.Errorf("create output dir: %w", err)
 	}
 
@@ -148,66 +235,97 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 		RootDir: rootDir,
 	}
 
-	// Start downloading MP4 process
-
+	// Prepare final paths
 	cookies := mergeCookies(session, pageInfo.Cookies)
 	log(logger, "prepared cookies for download", "count", len(cookies))
 	referer := rawURL
 	mp4Path := filepath.Join(rootDir, "recording.mp4")
+	zipPath := filepath.Join(rootDir, "raw.zip")
 
-	// Priority 1: Use video src from HTML (follows redirect to real MP4)
+	// Start MP4 download (now that we have the video URL from page info)
+	var wg sync.WaitGroup
+	var mp4ResultCh <-chan DownloadResult
 	if pageInfo.VideoSrc != "" {
-		logInfo(logger, "downloading video", "url", pageInfo.VideoSrc)
-		if err := d.downloadFile(ctx, pageInfo.VideoSrc, mp4Path, downloadOptions{
-			Cookies:    cookies,
-			Referer:    referer,
-			Kind:       fileKindVideo,
-			OnProgress: opts.OnProgress,
-		}, logger); err != nil {
-			log(logger, "video src download failed", "error", err)
+		if d.pool != nil {
+			// Use shared download pool
+			logInfo(logger, "downloading video via pool", "url", pageInfo.VideoSrc)
+			mp4ResultCh = d.pool.SubmitMP4(ctx, pageInfo.VideoSrc, mp4Path, referer, cookies, opts.OnProgress)
 		} else {
-			result.MP4Path = mp4Path
-			log(logger, "mp4 downloaded via video src", "path", mp4Path)
+			// Use direct goroutine
+			wg.Go(func() {
+				logInfo(logger, "downloading video", "url", pageInfo.VideoSrc)
+				if err := d.downloadFile(ctx, pageInfo.VideoSrc, mp4Path, downloadOptions{
+					Cookies:    cookies,
+					Referer:    referer,
+					Kind:       fileKindVideo,
+					OnProgress: opts.OnProgress,
+				}, logger); err != nil {
+					log(logger, "video src download failed", "error", err)
+				} else {
+					result.MP4Path = mp4Path
+					log(logger, "mp4 downloaded via video src", "path", mp4Path)
+				}
+			})
 		}
 	}
 
-	if result.MP4Path == "" {
-		result.Warnings = append(result.Warnings, "MP4 rendition not available")
-	}
+	// Wait for ZIP download to complete
+	<-zipDownloadDone
 
-	// Download and extract ZIP for VTT, chat logs, and documents
-	var lecturerName string
-	var userMapping map[string]string
-	var vttPath string
-
-	zipURL := fmt.Sprintf("%s/output/%s.zip?download=zip", info.BaseURL, info.ID)
-	zipPath := filepath.Join(rootDir, "raw.zip")
-	logInfo(logger, "downloading recording data", "url", zipURL)
-	if err := d.downloadFile(ctx, zipURL, zipPath, downloadOptions{
-		Cookies: cookies,
-		Referer: referer,
-		Kind:    fileKindZip,
-	}, logger); err != nil {
-		if errors.Is(err, ErrNotFound) {
+	// Handle ZIP result - move from temp location to final location
+	var zipErr error
+	if zipDownloadErr != nil {
+		if errors.Is(zipDownloadErr, ErrNotFound) {
 			result.Warnings = append(result.Warnings, "Raw recording ZIP not available")
 			log(logger, "zip not available", "url", zipURL)
-		} else if errors.Is(err, ErrInvalidZip) {
+		} else if errors.Is(zipDownloadErr, ErrInvalidZip) {
 			result.Warnings = append(result.Warnings, "ZIP response was invalid")
 			log(logger, "zip invalid", "url", zipURL)
 		} else {
-			log(logger, "zip download failed", "error", err)
+			log(logger, "zip download failed", "error", zipDownloadErr)
 		}
+		zipErr = zipDownloadErr
+		os.Remove(tempZipPath)
 	} else {
-		result.ZipPath = zipPath
-		log(logger, "zip downloaded", "path", zipPath)
-
-		// Extract ZIP
-		extractDir := filepath.Join(rootDir, "raw")
-		if err := extractZip(zipPath, extractDir); err != nil {
-			log(logger, "zip extraction failed", "error", err)
+		// Move temp zip to final location
+		if err := os.Rename(tempZipPath, zipPath); err != nil {
+			// If rename fails (cross-device), try copy
+			if copyErr := copyFile(tempZipPath, zipPath); copyErr != nil {
+				log(logger, "zip move/copy failed", "error", copyErr)
+				zipErr = copyErr
+			} else {
+				os.Remove(tempZipPath)
+				result.ZipPath = zipPath
+				log(logger, "zip downloaded", "path", zipPath)
+			}
 		} else {
+			result.ZipPath = zipPath
+			log(logger, "zip downloaded", "path", zipPath)
+		}
+	}
+
+	// Start ZIP extraction immediately (in parallel with MP4 download)
+	// This is key for performance - don't wait for MP4 to finish before extracting
+	var extractDir string
+	var extractDone = make(chan struct{})
+	var extractErr error
+	var lecturerName string
+	var userMapping map[string]string
+	var vttPath string
+	var docs []DocumentInfo
+
+	if zipErr == nil && result.ZipPath != "" {
+		extractDir = filepath.Join(rootDir, "raw")
+		go func() {
+			defer close(extractDone)
+			logInfo(logger, "extracting zip", "path", zipPath)
+			if err := extractZip(zipPath, extractDir); err != nil {
+				logError(logger, "zip extraction failed", "path", zipPath, "error", err)
+				extractErr = err
+				return
+			}
 			result.ExtractedDir = extractDir
-			log(logger, "zip extracted", "path", extractDir)
+			logInfo(logger, "zip extracted", "path", extractDir)
 
 			// Find VTT file in ZIP (named *.vtt)
 			vttFiles, _ := filepath.Glob(filepath.Join(extractDir, "*.vtt"))
@@ -221,42 +339,71 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 				}
 			}
 
-			// Extract lecturer name from transcriptstream.xml
+			// Extract lecturer name and user mapping (needed for VTT cleaning)
 			lecturerName = extractLecturerName(extractDir)
 			if lecturerName != "" {
 				log(logger, "lecturer name found", "name", lecturerName)
 			}
-
-			// Extract user mapping from indexstream.xml for deanonymization
 			userMapping = extractUserMapping(extractDir)
 			if len(userMapping) > 0 {
 				log(logger, "user mapping extracted", "count", len(userMapping))
 			}
 
-			// Generate chat log from transcriptstream.xml
+			// Extract document links
+			docs = extractDocumentLinks(extractDir, info.Hostname)
+
+			// Start document downloads immediately (don't wait for MP4)
+			if len(docs) > 0 {
+				docsPath := filepath.Join(rootDir, "documents.txt")
+				if err := writeDocumentList(docsPath, docs); err != nil {
+					log(logger, "document list write failed", "error", err)
+				} else {
+					log(logger, "document list created", "path", docsPath, "count", len(docs))
+				}
+				docsDir := filepath.Join(rootDir, "documents")
+				logInfo(logger, "downloading documents via pool", "count", len(docs))
+				downloaded := d.downloadDocuments(ctx, docs, docsDir, cookies, referer, logger)
+				log(logger, "documents downloaded", "downloaded", downloaded, "total", len(docs))
+			}
+
+			// Generate chat log
 			chatLogPath := filepath.Join(rootDir, "chat_log.txt")
 			if err := extractChatLog(extractDir, chatLogPath); err != nil {
 				log(logger, "chat log extraction failed", "error", err)
 			} else {
 				log(logger, "chat log created", "path", chatLogPath)
 			}
+		}()
+	} else {
+		close(extractDone)
+	}
 
-			// Extract document attachments list (with deduplication)
-			docsPath := filepath.Join(rootDir, "documents.txt")
-			docs := extractDocumentLinks(extractDir, info.Hostname)
-			if len(docs) > 0 {
-				if err := writeDocumentList(docsPath, docs); err != nil {
-					log(logger, "document list write failed", "error", err)
-				} else {
-					log(logger, "document list created", "path", docsPath, "count", len(docs))
-				}
-
-				// Download the documents
-				docsDir := filepath.Join(rootDir, "documents")
-				downloaded := d.downloadDocuments(ctx, docs, docsDir, cookies, referer, logger)
-				log(logger, "documents downloaded", "downloaded", downloaded, "total", len(docs))
-			}
+	// Wait for MP4 download to complete
+	if mp4ResultCh != nil {
+		// Pool mode - wait for result from channel
+		mp4Res := <-mp4ResultCh
+		if mp4Res.Err != nil {
+			log(logger, "video src download failed", "error", mp4Res.Err)
+		} else {
+			result.MP4Path = mp4Path
+			log(logger, "mp4 downloaded via video src", "path", mp4Path)
 		}
+	} else {
+		// Direct goroutine mode
+		wg.Wait()
+	}
+
+	// Check MP4 result
+	if result.MP4Path == "" {
+		result.Warnings = append(result.Warnings, "MP4 rendition not available")
+	}
+
+	// Wait for extraction and document downloads to complete
+	<-extractDone
+
+	// Process VTT after both extraction and MP4 are done (VTT embedding needs MP4)
+	if extractErr == nil && vttPath != "" {
+		d.processVTT(ctx, vttPath, result.MP4Path, rootDir, lecturerName, userMapping, opts.MP4Box, logger)
 	}
 
 	// Fallback: Download VTT separately if not found in ZIP
@@ -273,46 +420,8 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 			vttPath = "" // Mark as not available
 		} else {
 			log(logger, "vtt downloaded", "path", vttPath)
-		}
-	}
-
-	// Process VTT if available
-	if vttPath != "" {
-		// Clean the VTT file (fix speaker markers, use real names from user mapping)
-		cleanedVTTPath := filepath.Join(rootDir, "captions_cleaned.vtt")
-		if err := cleanVTTFile(vttPath, cleanedVTTPath, lecturerName, userMapping); err != nil {
-			log(logger, "vtt cleaning failed", "error", err)
-		} else {
-			// Replace original with cleaned version
-			if err := os.Rename(cleanedVTTPath, vttPath); err != nil {
-				log(logger, "rename cleaned vtt failed", "error", err)
-			} else {
-				log(logger, "vtt cleaned: speaker markers replaced with real names")
-			}
-		}
-
-		// Embed VTT as mov_text subtitles if ffmpeg is available and we have an MP4
-		if opts.FFmpeg != nil && result.MP4Path != "" {
-			embeddedPath := filepath.Join(rootDir, "recording_with_subs.mp4")
-			if err := embedSubtitles(ctx, opts.FFmpeg, result.MP4Path, vttPath, embeddedPath, logger); err != nil {
-				log(logger, "subtitle embedding failed", "error", err)
-				result.Warnings = append(result.Warnings, fmt.Sprintf("subtitle embedding failed: %v", err))
-			} else {
-				// Replace original MP4 with the one containing subtitles
-				if err := os.Rename(embeddedPath, result.MP4Path); err != nil {
-					log(logger, "rename embedded mp4 failed", "error", err)
-				} else {
-					log(logger, "subtitles embedded", "path", result.MP4Path)
-				}
-			}
-		}
-
-		// Create a readable transcript from the VTT
-		transcriptPath := filepath.Join(rootDir, "transcript.txt")
-		if err := vttToTranscript(vttPath, transcriptPath); err != nil {
-			log(logger, "transcript creation failed", "error", err)
-		} else {
-			log(logger, "transcript created", "path", transcriptPath)
+			// Process the downloaded VTT
+			d.processVTT(ctx, vttPath, result.MP4Path, rootDir, lecturerName, userMapping, opts.MP4Box, logger)
 		}
 	}
 
@@ -326,6 +435,47 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 	}
 
 	return result, nil
+}
+
+// processVTT handles VTT cleaning, transcript creation, and subtitle embedding.
+func (d *Downloader) processVTT(
+	ctx context.Context,
+	vttPath, mp4Path, rootDir string,
+	lecturerName string,
+	userMapping map[string]string,
+	embedder SubtitleEmbedder,
+	logger Logger,
+) {
+	// Clean the VTT file (fix speaker markers, use real names from user mapping)
+	cleanedVTTPath := filepath.Join(rootDir, "captions_cleaned.vtt")
+	if err := cleanVTTFile(vttPath, cleanedVTTPath, lecturerName, userMapping); err != nil {
+		log(logger, "vtt cleaning failed", "error", err)
+	} else {
+		// Replace original with cleaned version
+		if err := os.Rename(cleanedVTTPath, vttPath); err != nil {
+			log(logger, "rename cleaned vtt failed", "error", err)
+		} else {
+			log(logger, "vtt cleaned: speaker markers replaced with real names")
+		}
+	}
+
+	// Create a readable transcript from the VTT
+	transcriptPath := filepath.Join(rootDir, "transcript.txt")
+	if err := vttToTranscript(vttPath, transcriptPath); err != nil {
+		log(logger, "transcript creation failed", "error", err)
+	} else {
+		log(logger, "transcript created", "path", transcriptPath)
+	}
+
+	// Embed subtitles into MP4 if embedder is available and MP4 exists
+	if embedder != nil && mp4Path != "" {
+		logInfo(logger, "embedding subtitles", "path", vttPath)
+		if err := embedder.EmbedSubtitles(ctx, mp4Path, vttPath, "en", nil, nil); err != nil {
+			logWarn(logger, "failed to embed subtitles", "error", err)
+		} else {
+			logInfo(logger, "subtitles embedded successfully")
+		}
+	}
 }
 
 // fetchPageInfo fetches the recording page and extracts video URLs and VTT paths.
@@ -479,6 +629,11 @@ func (d *Downloader) downloadFile(
 	}
 	defer file.Close()
 
+	// Use buffered writer for better I/O performance (64KB buffer)
+	// This reduces the number of syscalls when writing to disk
+	bufferedFile := bufio.NewWriterSize(file, 64*1024)
+	defer bufferedFile.Flush()
+
 	// Read initial bytes for validation
 	var head [4096]byte
 	n, readErr := io.ReadFull(resp.Body, head[:])
@@ -498,7 +653,7 @@ func (d *Downloader) downloadFile(
 	}
 
 	// Write the head bytes we already read
-	if _, err := file.Write(head[:n]); err != nil {
+	if _, err := bufferedFile.Write(head[:n]); err != nil {
 		return err
 	}
 
@@ -515,9 +670,14 @@ func (d *Downloader) downloadFile(
 		opts.OnProgress(int64(n), resp.ContentLength)
 	}
 
-	written, err := io.Copy(file, reader)
+	written, err := io.Copy(bufferedFile, reader)
 	if err != nil {
 		return fmt.Errorf("write file: %w", err)
+	}
+
+	// Ensure all buffered data is written
+	if err := bufferedFile.Flush(); err != nil {
+		return fmt.Errorf("flush buffer: %w", err)
 	}
 
 	totalWritten := int64(n) + written
@@ -531,7 +691,32 @@ func (d *Downloader) downloadFile(
 	return nil
 }
 
-// downloadDocuments downloads all documents to the specified directory.
+// DefaultConcurrency is the optimal number of concurrent downloads (benchmark-proven).
+const DefaultConcurrency = 12
+
+// minInt returns the smaller of two ints.
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// downloadJob represents a single document download task.
+type downloadJob struct {
+	Index     int
+	Doc       DocumentInfo
+	DestDir   string
+	Cookies   []*http.Cookie
+	Referer   string
+	TotalDocs int
+}
+
+// downloadDocuments downloads all documents to the specified directory using a worker pool.
+// This is more efficient than spawning a goroutine per document as it:
+// 1. Reuses goroutines instead of creating new ones for each document
+// 2. Reduces goroutine scheduling overhead
+// 3. Provides natural backpressure through the jobs channel
 func (d *Downloader) downloadDocuments(
 	ctx context.Context,
 	docs []DocumentInfo,
@@ -540,25 +725,84 @@ func (d *Downloader) downloadDocuments(
 	referer string,
 	logger Logger,
 ) int {
+	if len(docs) == 0 {
+		return 0
+	}
+
+	// Use shared pool if available
+	if d.pool != nil {
+		logInfo(logger, "downloading documents via pool", "count", len(docs))
+		return d.pool.WaitForDocuments(ctx, docs, destDir, cookies, referer)
+	}
+
+	// Fall back to local worker pool
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		log(logger, "create documents dir failed", "error", err)
 		return 0
 	}
 
-	downloaded := 0
-	for i, doc := range docs {
-		destPath := filepath.Join(destDir, sanitize(doc.Name))
-		logInfo(logger, "downloading document", "num", fmt.Sprintf("%d/%d", i+1, len(docs)), "name", doc.Name)
+	// Use min(DefaultConcurrency, len(docs)) workers to avoid idle workers
+	numWorkers := minInt(DefaultConcurrency, len(docs))
 
-		if err := d.downloadFile(ctx, doc.DownloadURL, destPath, downloadOptions{
-			Cookies: cookies,
-			Referer: referer,
-			Kind:    fileKindBinary,
-		}, logger); err != nil {
-			log(logger, "document download failed", "name", doc.Name, "error", err)
-			continue
+	// Create buffered jobs channel - buffer size equals docs to allow non-blocking sends
+	jobs := make(chan downloadJob, len(docs))
+
+	// Results channel for counting successful downloads
+	results := make(chan bool, len(docs))
+
+	// Start worker pool
+	var wg sync.WaitGroup
+	for range make([]struct{}, numWorkers) {
+		wg.Add(1)
+		wg.Go(func() {
+			for job := range jobs {
+				// Check context cancellation
+				if ctx.Err() != nil {
+					results <- false
+					continue
+				}
+
+				destPath := filepath.Join(job.DestDir, sanitize(job.Doc.Name))
+				numStr := fmt.Sprintf("%d/%d", job.Index+1, job.TotalDocs)
+				logInfo(logger, "downloading document", "num", numStr, "name", job.Doc.Name)
+
+				if err := d.downloadFile(ctx, job.Doc.DownloadURL, destPath, downloadOptions{
+					Cookies: job.Cookies,
+					Referer: job.Referer,
+					Kind:    fileKindBinary,
+				}, logger); err != nil {
+					log(logger, "document download failed", "name", job.Doc.Name, "error", err)
+					results <- false
+					continue
+				}
+				results <- true
+			}
+		})
+	}
+
+	// Send all jobs to workers (non-blocking due to buffered channel)
+	for i, doc := range docs {
+		jobs <- downloadJob{
+			Index:     i,
+			Doc:       doc,
+			DestDir:   destDir,
+			Cookies:   cookies,
+			Referer:   referer,
+			TotalDocs: len(docs),
 		}
-		downloaded++
+	}
+	close(jobs)
+
+	// Wait for all workers to finish
+	wg.Wait()
+	close(results)
+
+	// Count successful downloads
+	var downloaded int
+	for success := range results {
+		if success {
+			downloaded++
+		}
 	}
 
 	return downloaded

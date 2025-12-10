@@ -210,7 +210,7 @@ func TestSessionTakenFromQueryParam(t *testing.T) {
 	}
 }
 
-// Tests for user mapping extraction.
+// Tests for user mapping extraction
 func TestExtractUserMapping(t *testing.T) {
 	rawDir := filepath.Join("testdata", "lecture1")
 
@@ -242,7 +242,7 @@ func TestExtractUserMappingMissingFile(t *testing.T) {
 	}
 }
 
-// Tests for lecturer name extraction.
+// Tests for lecturer name extraction
 func TestExtractLecturerNameFromTranscript(t *testing.T) {
 	rawDir := filepath.Join("testdata", "lecture1")
 
@@ -293,7 +293,7 @@ func TestExtractLecturerName(t *testing.T) {
 	}
 }
 
-// Tests for speaker marker cleaning.
+// Tests for speaker marker cleaning
 func TestCleanSpeakerMarkers(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -391,7 +391,7 @@ func TestCleanSpeakerMarkersWithMapping(t *testing.T) {
 	}
 }
 
-// Tests for VTT file cleaning.
+// Tests for VTT file cleaning
 func TestCleanVTTFile(t *testing.T) {
 	// Use the raw VTT file with @:@ markers
 	srcPath := filepath.Join("testdata", "lecture1", "raw_captions.vtt")
@@ -430,7 +430,7 @@ func TestCleanVTTFile(t *testing.T) {
 	}
 }
 
-// Tests for chat log extraction.
+// Tests for chat log extraction
 func TestExtractChatLog(t *testing.T) {
 	rawDir := filepath.Join("testdata", "lecture1")
 	tmp := t.TempDir()
@@ -462,7 +462,7 @@ func TestExtractChatLog(t *testing.T) {
 	}
 }
 
-// Tests for URL conversion.
+// Tests for URL conversion
 func TestConvertToDirectDownloadURL(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -500,7 +500,7 @@ func TestConvertToDirectDownloadURL(t *testing.T) {
 	}
 }
 
-// Tests for progress reader.
+// Tests for progress reader
 func TestProgressReader(t *testing.T) {
 	data := []byte("hello world")
 	reader := bytes.NewReader(data)
@@ -543,6 +543,39 @@ func TestProgressReader(t *testing.T) {
 	// Check callbacks were called
 	if len(callbacks) < 2 {
 		t.Errorf("expected at least 2 callbacks, got %d", len(callbacks))
+	}
+}
+
+// Tests for FindVTTPath
+func TestFindVTTPath(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Create a captions.vtt file in the root
+	vttPath := filepath.Join(tmp, "captions.vtt")
+	if err := os.WriteFile(vttPath, []byte("WEBVTT\n\n"), 0o644); err != nil {
+		t.Fatalf("create vtt file: %v", err)
+	}
+
+	result := Result{
+		RootDir: tmp,
+	}
+
+	got := FindVTTPath(result)
+	if got != vttPath {
+		t.Errorf("FindVTTPath() = %q, want %q", got, vttPath)
+	}
+}
+
+func TestFindVTTPathNotFound(t *testing.T) {
+	tmp := t.TempDir()
+
+	result := Result{
+		RootDir: tmp,
+	}
+
+	got := FindVTTPath(result)
+	if got != "" {
+		t.Errorf("FindVTTPath() = %q, want empty string", got)
 	}
 }
 

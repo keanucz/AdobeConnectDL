@@ -22,7 +22,7 @@ builds:
   - amd64
   - arm64
   tags:
-  - embed_ffmpeg
+  - embed_mp4box
   ldflags:
   - -s -w
   - -X github.com/keanucz/AdobeConnectDL/internal/version.Version={{.Version}}

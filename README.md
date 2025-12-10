@@ -37,7 +37,9 @@ For each Adobe Connect recording URL you give it, AdobeConnectDL will:
 
    Grab the binary from the releases page for your platform. ⬇️  
 
-   I’ve embedded a copy of `ffmpeg` for most platforms, so you shouldn’t need to install any external dependencies.
+   I've embedded a copy of `MP4Box` for most platforms, so you shouldn't need to install any external dependencies.
+
+   > **macOS users:** See [Running on macOS](#-running-on-macos-unsigned-binary) below for instructions on running unsigned binaries.
 
 2. **Open the recordings list**
 
@@ -67,7 +69,7 @@ For each Adobe Connect recording URL you give it, AdobeConnectDL will:
    ```bash
    ❯ ./adobeconnectdl download "https://your-domain.adobeconnect.com/recording-id/?session=YOUR_SESSION_TOKEN"
    INFO Starting batch download count=1
-   INFO FFmpeg located path=/usr/bin/ffmpeg
+   INFO MP4Box located path=/usr/local/bin/MP4Box
    INFO Processing recording 1/1 url="https://your-domain.adobeconnect.com/recording-id/?session=YOUR_SESSION_TOKEN"
    INFO Downloading video progress=5% downloaded="16.4 MB" total="328.0 MB"
    INFO Downloading video progress=10% downloaded="32.8 MB" total="328.0 MB"
@@ -103,7 +105,7 @@ For each Adobe Connect recording URL you give it, AdobeConnectDL will:
 
 ## 📦 Outputs at a glance
 
-For each recording, you’ll typically get a directory like:
+For each recording, you'll typically get a directory like:
 
 - 🎥 `recording.mp4` – the final MP4 with subtitles baked in
 - 💬 `captions.vtt` – raw subtitles
@@ -114,19 +116,114 @@ For each recording, you’ll typically get a directory like:
 - 🧾 `metadata.json` – assorted recording metadata
 - 🔍 `raw.zip` / `raw/` – original Adobe Connect assets (FLV/XML etc.), if you want to poke at them
 
-## 🎬 FFmpeg binaries
+## 🍎 Running on macOS (unsigned binary)
 
-Embedded `ffmpeg` binaries shipped with AdobeConnectDL are taken from:
+With Apple Silicon, macOS became much stricter about running unsigned binaries. Since AdobeConnectDL is not signed & notarised with an Apple Developer certificate, macOS will block execution by default.
 
-- macOS (Apple silicon & Intel), ffmpeg **8.0**: [osxexperts.net](https://osxexperts.net/)
-- Windows, ffmpeg **8.0.1**: [Gyan FFmpeg builds](https://www.gyan.dev/ffmpeg/builds/)
-- Linux amd64, ffmpeg build **autobuild-2025-12-08-12-55**: [BtbN FFmpeg builds](https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2025-12-08-12-55)
+If you try to run the binary, you'll see an error like:
 
-### FFmpeg versions & licenses
+<p align="center">
+  <img src="https://donatstudios.com/assets/86/warning.avif" alt="macOS warning: Apple could not verify binary is free of malware" width="400" />
+</p>
 
-- All embedded binaries above are prebuilt distributions of FFmpeg obtained from the listed sources.
-- FFmpeg itself is licensed under the LGPL/GPL; see the official FFmpeg license page for details:
-   - https://ffmpeg.org/legal.html
+> Apple could not verify "adobeconnectdl" is free of malware that may harm your Mac or compromise your privacy
+
+Instead of offering any help, macOS simply offers to move the binary to the trash. Very frustrating!
+
+### Option 1: Add Terminal as a Developer Tool (Recommended)
+
+The cleanest solution is to add Terminal (or your favourite TTY) as a system Developer Tool. This allows it to run any unsigned binary without issues.
+
+**Step 1:** Open **System Settings** and search for "**developer**". Click **Allow applications to use developer tools** in the sidebar. If Terminal is not listed, click the `+` button:
+
+<p align="center">
+  <img src="https://donatstudios.com/assets/86/add-terminal.avif" alt="System Settings showing Allow applications to use developer tools with plus button" width="600" />
+</p>
+
+**Step 2:** Search for `Terminal` in the file dialog and select it:
+
+<p align="center">
+  <img src="https://donatstudios.com/assets/86/search.avif" alt="File chooser searching for Terminal" width="500" />
+</p>
+
+**Step 3:** Ensure the toggle next to Terminal is **enabled**:
+
+<p align="center">
+  <img src="https://donatstudios.com/assets/86/enable-terminal.avif" alt="Toggle to enable Terminal in developer tools" width="600" />
+</p>
+
+**Step 4:** **Restart Terminal** and everything should now work:
+
+<p align="center">
+  <img src="https://donatstudios.com/assets/86/success.avif" alt="Terminal showing successful execution" width="500" />
+</p>
+
+You can now run any unsigned binary from Terminal without issues!
+
+> *Screenshots & text courtesy of [Jesse Donat](https://donatstudios.com/mac-terminal-run-unsigned-binaries) (CC BY-SA 3.0)*
+
+### Option 2: Remove Quarantine Attribute
+
+If you prefer not to enable developer tools globally, you can remove the quarantine attribute from the binary:
+
+```bash
+# Remove quarantine from the binary
+xattr -dr com.apple.quarantine /path/to/adobeconnectdl
+
+# Optional: self-sign the binary
+codesign -s - --deep --force /path/to/adobeconnectdl
+```
+
+### Option 3: Right-Click Open (GUI approach)
+
+1. Go to **Finder > Applications** (or wherever you placed the binary)
+2. **Right-click** on `adobeconnectdl` and choose **Open** from the context menu
+3. In the dialog, click **Open**
+4. On macOS 15 (Sequoia) and above, you may also need to go to **System Settings > Privacy & Security** and click **Open Anyway**
+
+After any of these steps, the binary should work normally.
+
+## ⚡ Download Options
+
+AdobeConnectDL uses Go's native HTTP client with **concurrent downloads** enabled by default for optimal performance. I ran some benchmarks and apparently 12 concurrent workers achieve the best throughput irregardless of network speed. (I also tried testing aria2/curl/wget and the difference between all of them was marginal, with aria2 coming close to native performance).
+
+### Concurrent vs Sequential Downloads
+
+By default, AdobeConnectDL downloads the MP4, ZIP, and all documents concurrently using 12 workers:
+
+```bash
+# Concurrent download (default, fastest)
+adobeconnectdl download "https://..."
+
+# Sequential download (one file at a time)
+adobeconnectdl download --sequential "https://..."
+```
+
+### Overwrite Existing Files
+
+By default, the tool will prompt before overwriting existing directories. Use `-y` to skip the prompt:
+
+```bash
+# Overwrite without prompting
+adobeconnectdl download -y "https://..."
+```
+
+### Download Statistics
+
+Add `--stats` to see detailed download timing and speed metrics:
+
+```bash
+adobeconnectdl download --stats "https://..."
+
+# Output includes:
+# 📊 Download Statistics:
+#   Mode: concurrent
+#   Total batch time: 45.2s
+#   Total data: 328.5 MB
+#   Average speed: 7.27 MB/s
+```
+
+Use `--stats -v` for per-recording breakdowns when downloading multiple recordings.
 
 ## 🧠 Technical details (under the hood)
 

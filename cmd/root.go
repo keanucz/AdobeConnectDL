@@ -11,9 +11,7 @@ import (
 )
 
 var (
-	outputDirFlag string
-	sessionFlag   string
-	verboseFlag   bool
+	verboseFlag bool
 )
 
 // Logger is the global logger instance.
@@ -48,8 +46,5 @@ func init() {
 	// Set custom version template to show full version info
 	rootCmd.SetVersionTemplate(fmt.Sprintf("adobeconnectdl %s\n", version.Short()))
 
-	rootCmd.PersistentFlags().
-		StringVarP(&outputDirFlag, "output", "o", "", "Output directory (defaults to current working directory)")
-	rootCmd.PersistentFlags().StringVar(&sessionFlag, "session", "", "BREEZESESSION token to access private recordings")
 	rootCmd.PersistentFlags().BoolVarP(&verboseFlag, "verbose", "v", false, "Enable verbose debug output")
 }

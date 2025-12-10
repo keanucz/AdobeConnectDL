@@ -22,6 +22,7 @@ formatters:
   enable:
   - goimports # checks if the code and import statements are formatted according to the 'goimports' command
   - golines # checks if code is formatted, and fixes long lines
+  - gofmt
   ## you may want to enable
   #- gci # checks if code and import statements are formatted, with additional rules
   #- gofmt # checks if the code is formatted according to 'gofmt' command
@@ -462,9 +463,9 @@ linters:
       - gosec
       - noctx
       - wrapcheck
-    # Exclude typecheck errors in embed.go - LFS-tracked binaries may not be
+    # Exclude typecheck errors in embed.go - compressed binaries may not be
     # available in all environments (CI, shallow clones, etc.)
-    - path: 'internal/ffmpegexec/embed\.go'
+    - path: 'internal/mp4box/embed\.go'
       text: "expected 'package', found"
       linters:
       - typecheck

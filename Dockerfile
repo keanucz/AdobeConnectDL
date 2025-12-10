@@ -27,8 +27,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w \
 # Runtime stage
 FROM alpine:3
 
-# Install ffmpeg for subtitle embedding and ca-certificates for HTTPS
-RUN apk add --no-cache ffmpeg ca-certificates
+# Install gpac (MP4Box) for subtitle embedding and ca-certificates for HTTPS
+RUN apk add --no-cache gpac ca-certificates
 
 # Create non-root user
 RUN adduser -D -u 1000 appuser
