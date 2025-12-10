@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./pictures/logo.svg" alt="AdobeConnectDL logo" height="80" />
+  <img src="./pictures/logo.svg" alt="AdobeConnectDL logo" height="150" />
 </p>
 
 <h1 align="center">AdobeConnectDL</h1>
