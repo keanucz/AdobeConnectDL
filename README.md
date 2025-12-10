@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./pictures/logo.svg" alt="AdobeConnectDL logo" height="80" />
+  <img src="./pictures/logo.svg" alt="AdobeConnectDL logo" height="150" />
 </p>
 
 <h1 align="center">AdobeConnectDL</h1>
@@ -67,41 +67,64 @@ For each Adobe Connect recording URL you give it, AdobeConnectDL will:
    Feed the recording URL into the CLI and let it do its thing:
 
    ```bash
-   ❯ ./adobeconnectdl download "https://your-domain.adobeconnect.com/recording-id/?session=YOUR_SESSION_TOKEN"
-   INFO Starting batch download count=1
-   INFO MP4Box located path=/usr/local/bin/MP4Box
-   INFO Processing recording 1/1 url="https://your-domain.adobeconnect.com/recording-id/?session=YOUR_SESSION_TOKEN"
-   INFO Downloading video progress=5% downloaded="16.4 MB" total="328.0 MB"
-   INFO Downloading video progress=10% downloaded="32.8 MB" total="328.0 MB"
-   INFO Downloading video progress=15% downloaded="49.2 MB" total="328.0 MB"
-   INFO Downloading video progress=20% downloaded="65.6 MB" total="328.0 MB"
-   INFO Downloading video progress=25% downloaded="82.0 MB" total="328.0 MB"
-   INFO Downloading video progress=30% downloaded="98.4 MB" total="328.0 MB"
-   INFO Downloading video progress=35% downloaded="114.8 MB" total="328.0 MB"
-   INFO Downloading video progress=40% downloaded="131.2 MB" total="328.0 MB"
-   INFO Downloading video progress=45% downloaded="147.6 MB" total="328.0 MB"
-   INFO Downloading video progress=50% downloaded="164.0 MB" total="328.0 MB"
-   INFO Downloading video progress=55% downloaded="180.4 MB" total="328.0 MB"
-   INFO Downloading video progress=60% downloaded="196.8 MB" total="328.0 MB"
-   INFO Downloading video progress=65% downloaded="213.2 MB" total="328.0 MB"
-   INFO Downloading video progress=70% downloaded="229.6 MB" total="328.0 MB"
-   INFO Downloading video progress=75% downloaded="246.0 MB" total="328.0 MB"
-   INFO Downloading video progress=80% downloaded="262.4 MB" total="328.0 MB"
-   INFO Downloading video progress=85% downloaded="278.8 MB" total="328.0 MB"
-   INFO Downloading video progress=90% downloaded="295.2 MB" total="328.0 MB"
-   INFO Downloading video progress=95% downloaded="311.6 MB" total="328.0 MB"
-   INFO Downloading video progress=100% downloaded="328.0 MB" total="328.0 MB"
-   INFO Download complete title="Introduction to Software Engineering - Lecture 12" location="Introduction to Software Engineering - Lecture 12"
-   INFO Video saved path="Introduction to Software Engineering - Lecture 12/recording.mp4"
 
-   ✓ Saved recording "Introduction to Software Engineering - Lecture 12" to Introduction to Software Engineering - Lecture 12
+    ❯ adobeconnectdl download "<https://acme.adobeconnect.com/p1a2b3c4d5e6/?&session=xyz123sessiontoken>"
 
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   Download Summary: 1 successful, 0 failed
+    ╭──────────────────────────────────────╮
+    │  🎬 adobeconnectdl dev               │
+    ╰──────────────────────────────────────╯
 
-   ❯ ls Introduction\ to\ Software\ Engineering\ -\ Lecture\ 12
-   captions.vtt  chat_log.txt  documents  documents.txt  metadata.json  raw  raw.zip  recording.mp4  transcript.txt
-   ```
+    INFO starting batch download count=1
+    INFO MP4Box located path=/usr/local/bin/MP4Box
+    INFO download pool started workers=12
+    INFO processing recording 1/1 url="<https://acme.adobeconnect.com/p1a2b3c4d5e6/?&session=xyz123sessiontoken>"
+    INFO downloading recording data via pool url="<https://acme.adobeconnect.com/p1a2b3c4d5e6/output/p1a2b3c4d5e6.zip?download=zip>"
+    INFO downloading video via pool url="<https://cdn1.adobeconnect.com/static/recordings/10/123456789/9876543210?connect-return-url=https%3A%2F%2Facme.adobeconnect.com%2Fsystem%2Ferror-cas&key=AbCdEfGhIjKlMnOpQrStUvWxYz%3D&param1=abc123xyz789&recording-version=1&ts=1765369691&sign=ZYXwVuTsRqPoNmLkJiHgFeDcBa%3D>"
+    INFO video download: 5% (16.4/328.0 MB) recording=1/1
+    INFO video download: 10% (32.8/328.0 MB) recording=1/1
+    INFO video download: 15% (49.2/328.0 MB) recording=1/1
+    INFO video download: 20% (65.6/328.0 MB) recording=1/1
+    INFO video download: 25% (82.0/328.0 MB) recording=1/1
+    INFO video download: 30% (98.4/328.0 MB) recording=1/1
+    INFO video download: 35% (114.8/328.0 MB) recording=1/1
+    INFO video download: 40% (131.2/328.0 MB) recording=1/1
+    INFO video download: 45% (147.6/328.0 MB) recording=1/1
+    INFO video download: 50% (164.0/328.0 MB) recording=1/1
+    INFO video download: 55% (180.4/328.0 MB) recording=1/1
+    INFO video download: 60% (196.8/328.0 MB) recording=1/1
+    INFO video download: 65% (213.2/328.0 MB) recording=1/1
+    INFO video download: 70% (229.6/328.0 MB) recording=1/1
+    INFO video download: 75% (246.0/328.0 MB) recording=1/1
+    INFO video download: 80% (262.4/328.0 MB) recording=1/1
+    INFO video download: 85% (278.8/328.0 MB) recording=1/1
+    INFO video download: 90% (295.2/328.0 MB) recording=1/1
+    INFO video download: 95% (311.6/328.0 MB) recording=1/1
+    INFO video download: 100% (328.0/328.0 MB) recording=1/1
+    INFO downloaded path=.p1a2b3c4d5e6_temp.zip bytes=1048576
+    INFO extracting zip path="C:\Users\demo\Documents\Projects\AdobeConnectDL\Course ABC123 - Cohort X_0\raw.zip"
+    INFO zip extracted path="C:\Users\demo\Documents\Projects\AdobeConnectDL\Course ABC123 - Cohort X_0\raw"
+    INFO downloading documents via pool count=5
+    INFO downloading documents via pool count=5
+    INFO downloaded path=links.txt bytes=512
+    INFO downloaded path="ABC123_L12_Notes.pdf" bytes=450000
+    INFO downloaded path="ABC123_L12_Slides.pdf" bytes=475000
+    INFO downloaded path="ABC123_Reading_Pack.pdf" bytes=610000
+    INFO downloaded path="ABC123_L12_Activity.pptx" bytes=4470000
+    INFO downloaded path=.p1a2b3c4d5e6_temp.mp4 bytes=343597383
+    INFO embedding subtitles path="C:\Users\demo\Documents\Projects\AdobeConnectDL\Course ABC123 - Cohort X_0\captions.vtt"
+    INFO subtitles embedded successfully
+    INFO download complete title="Course ABC123 - Cohort X_0" location="C:\Users\demo\Documents\Projects\AdobeConnectDL\Course ABC123 - Cohort X_0"
+    INFO video saved path="C:\Users\demo\Documents\Projects\AdobeConnectDL\Course ABC123 - Cohort X_0\recording.mp4"
+
+    ✓ Saved recording "Course ABC123 - Cohort X_0" to C:\Users\demo\Documents\Projects\AdobeConnectDL\Course ABC123 - Cohort X_0
+
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    Download Summary: 1 successful, 0 failed
+
+    📊 Download Statistics:
+      Total batch time: 17.359s
+    INFO download pool stopped completed=7 failed=0
+    ```
 
 ## 📦 Outputs at a glance
 
@@ -207,23 +230,6 @@ By default, the tool will prompt before overwriting existing directories. Use `-
 # Overwrite without prompting
 adobeconnectdl download -y "https://..."
 ```
-
-### Download Statistics
-
-Add `--stats` to see detailed download timing and speed metrics:
-
-```bash
-adobeconnectdl download --stats "https://..."
-
-# Output includes:
-# 📊 Download Statistics:
-#   Mode: concurrent
-#   Total batch time: 45.2s
-#   Total data: 328.5 MB
-#   Average speed: 7.27 MB/s
-```
-
-Use `--stats -v` for per-recording breakdowns when downloading multiple recordings.
 
 ## 🧠 Technical details (under the hood)
 

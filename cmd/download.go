@@ -32,13 +32,15 @@ func makeProgressCallback(recordingID string, logger interface {
 	Info(msg any, keyvals ...any)
 }) downloader.ProgressCallback {
 	var lastPercent int64 = -1
+	first := true
 	return func(downloaded, total int64) {
 		if total <= 0 {
 			return
 		}
 		percent := (downloaded * 100) / total
-		// Log at every 10% increment
-		if percent/10 > lastPercent/10 {
+		// Log immediately on first progress callback, then every 10% increment
+		if first || percent/10 > lastPercent/10 {
+			first = false
 			lastPercent = percent
 			downloadedMB := float64(downloaded) / (1024 * 1024)
 			totalMB := float64(total) / (1024 * 1024)
