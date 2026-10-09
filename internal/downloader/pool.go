@@ -228,7 +228,12 @@ func (p *DownloadPool) processJob(job DownloadJob) {
 	} else {
 		// Log the start for download jobs
 		if p.logger != nil {
-			p.logger.Debug("starting download", "type", job.Type.String(), "name", job.Name, "url", truncateURL(job.URL))
+			p.logger.Debug(
+				"starting download",
+				"type", job.Type.String(),
+				"name", job.Name,
+				"url", truncateURL(job.URL),
+			)
 		}
 
 		// Create a temporary downloader instance to use downloadFile
@@ -248,7 +253,13 @@ func (p *DownloadPool) processJob(job DownloadJob) {
 			if job.Type == JobTypeExtract {
 				p.logger.Warn("extraction failed", "name", job.Name, "source", job.SourcePath, "error", err)
 			} else {
-				p.logger.Warn("download failed", "type", job.Type.String(), "name", job.Name, "url", truncateURL(job.URL), "error", err)
+				p.logger.Warn(
+					"download failed",
+					"type", job.Type.String(),
+					"name", job.Name,
+					"url", truncateURL(job.URL),
+					"error", err,
+				)
 			}
 		}
 	} else {
