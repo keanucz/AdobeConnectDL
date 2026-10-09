@@ -27,10 +27,11 @@ type recordingInfo struct {
 
 // pageInfo holds information extracted from the recording page HTML.
 type pageInfo struct {
-	Title    string
-	VideoSrc string // <video src="..."> URL that redirects to actual MP4
-	VTTPath  string // <track src="..."> relative path to VTT
-	Cookies  []*http.Cookie
+	Title         string
+	VideoSrc      string // <video src="..."> URL that redirects to actual MP4
+	VTTPath       string // <track src="..."> relative path to VTT
+	CASCaptionURL string // Signed Adobe caption endpoint without the name parameter
+	Cookies       []*http.Cookie
 }
 
 // metadata represents the JSON metadata written for each download.
@@ -122,6 +123,18 @@ func resolveVTTURL(baseURL, vttPath string) string {
 	}
 	// vttPath is an absolute path like "/recording-id/output/..."
 	return fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, vttPath)
+}
+
+// resolveCASCaptionURL adds the transcript filename to Adobe's signed caption endpoint.
+func resolveCASCaptionURL(casCaptionURL, transcriptFilename string) (string, error) {
+	u, err := url.Parse(casCaptionURL)
+	if err != nil {
+		return "", fmt.Errorf("parse CAS caption url: %w", err)
+	}
+	q := u.Query()
+	q.Set("name", transcriptFilename)
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }
 
 // parseHTMLTitle extracts the <title> content from HTML.

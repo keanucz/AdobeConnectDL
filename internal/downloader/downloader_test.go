@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -130,6 +131,64 @@ func TestDiscoversMP4FromCASRecordingURL(t *testing.T) {
 		t.Fatalf("download error: %v", err)
 	}
 	assertFileContent(t, res.MP4Path, mp4Content)
+}
+
+func TestDownloadsCaptionsFromCASCaptionURL(t *testing.T) {
+	mp4Content := make([]byte, 2048)
+	copy(mp4Content, "mp4-data-start")
+	vttContent := "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHello\n"
+
+	var pageRequests atomic.Int32
+	var captionRequestOK atomic.Bool
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rec/":
+			pageRequests.Add(1)
+			fmt.Fprintf(w, `<html><head><title>CAS Captions</title></head><body><script>
+var casRecordingURL = '%s/video';
+var casCaptionURL = '%s/captions?token=abc';
+var transcriptFilename = 'video captions.vtt';
+</script></body></html>`, server.URL, server.URL)
+		case "/video":
+			w.Write(mp4Content)
+		case "/captions":
+			_, sessionErr := r.Cookie("BREEZESESSION")
+			if r.URL.Query().Get("token") == "abc" &&
+				r.URL.Query().Get("name") == "video captions.vtt" &&
+				r.Referer() != "" && sessionErr == nil {
+				captionRequestOK.Store(true)
+			}
+			http.Redirect(w, r, "/caption.vtt", http.StatusFound)
+		case "/caption.vtt":
+			w.Header().Set("Content-Type", "text/vtt")
+			fmt.Fprint(w, vttContent)
+		case "/rec/output/rec.zip":
+			http.NotFound(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dl := New(server.Client())
+	res, err := dl.Download(
+		context.Background(),
+		server.URL+"/rec/?session=abc123",
+		Options{OutputDir: t.TempDir()},
+	)
+	if err != nil {
+		t.Fatalf("download error: %v", err)
+	}
+	if pageRequests.Load() < 2 {
+		t.Fatalf("expected recording page to be refreshed before downloading captions")
+	}
+	if !captionRequestOK.Load() {
+		t.Fatal(
+			"caption request did not preserve query parameters, filename, referer and session cookie",
+		)
+	}
+	assertFileContent(t, filepath.Join(res.RootDir, "captions.vtt"), []byte(vttContent))
 }
 
 func TestInvalidZipIsWarning(t *testing.T) {

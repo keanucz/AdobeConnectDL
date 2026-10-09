@@ -86,6 +86,16 @@ func findCASRecordingURL(body []byte) string {
 	return ""
 }
 
+// findCASCaptionURL extracts Adobe's signed caption endpoint from JavaScript.
+func findCASCaptionURL(body []byte) string {
+	re := regexp.MustCompile(`var\s+casCaptionURL\s*=\s*'([^']+)'`)
+	match := re.FindSubmatch(body)
+	if len(match) >= 2 {
+		return string(match[1])
+	}
+	return ""
+}
+
 // findVTTFromJS extracts the VTT filename from JavaScript.
 func findVTTFromJS(body []byte) string {
 	// Look for transcriptFilename variable

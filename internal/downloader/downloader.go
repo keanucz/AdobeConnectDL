@@ -428,22 +428,45 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 		d.processVTT(ctx, vttPath, result.MP4Path, rootDir, lecturerName, userMapping, opts.MP4Box, logger)
 	}
 
-	// Fallback: Download VTT separately if not found in ZIP
-	if vttPath == "" && result.MP4Path != "" && pageInfo.VTTPath != "" {
-		vttURL := resolveVTTURL(info.BaseURL, pageInfo.VTTPath)
-		vttPath = filepath.Join(rootDir, "captions.vtt")
-		logInfo(logger, "downloading captions", "url", vttURL)
-		if err := d.downloadFile(ctx, vttURL, vttPath, downloadOptions{
-			Cookies: cookies,
-			Referer: referer,
-			Kind:    fileKindBinary,
-		}, logger); err != nil {
-			log(logger, "vtt download failed", "error", err)
-			vttPath = "" // Mark as not available
-		} else {
-			log(logger, "vtt downloaded", "path", vttPath)
-			// Process the downloaded VTT
-			d.processVTT(ctx, vttPath, result.MP4Path, rootDir, lecturerName, userMapping, opts.MP4Box, logger)
+	// Fallback: Download VTT separately if not found in ZIP.
+	if vttPath == "" && pageInfo.VTTPath != "" {
+		captionInfo := pageInfo
+		captionCookies := cookies
+
+		// CAS URLs expire, so refresh the page immediately before using one.
+		if pageInfo.CASCaptionURL != "" {
+			if fresh, err := d.fetchPageInfo(ctx, rawURL, session, logger); err != nil {
+				log(logger, "caption URL refresh failed", "error", err)
+			} else if fresh.CASCaptionURL != "" && fresh.VTTPath != "" {
+				captionInfo = fresh
+				captionCookies = mergeCookies(session, fresh.Cookies)
+			}
+		}
+
+		vttURL := resolveVTTURL(info.BaseURL, captionInfo.VTTPath)
+		if captionInfo.CASCaptionURL != "" {
+			var err error
+			vttURL, err = resolveCASCaptionURL(captionInfo.CASCaptionURL, captionInfo.VTTPath)
+			if err != nil {
+				log(logger, "CAS caption URL resolution failed", "error", err)
+				vttURL = ""
+			}
+		}
+
+		if vttURL != "" {
+			vttPath = filepath.Join(rootDir, "captions.vtt")
+			logInfo(logger, "downloading captions", "url", vttURL)
+			if err := d.downloadFile(ctx, vttURL, vttPath, downloadOptions{
+				Cookies: captionCookies,
+				Referer: referer,
+				Kind:    fileKindBinary,
+			}, logger); err != nil {
+				log(logger, "vtt download failed", "error", err)
+				vttPath = ""
+			} else {
+				log(logger, "vtt downloaded", "path", vttPath)
+				d.processVTT(ctx, vttPath, result.MP4Path, rootDir, lecturerName, userMapping, opts.MP4Box, logger)
+			}
 		}
 	}
 
@@ -536,6 +559,7 @@ func (d *Downloader) fetchPageInfo(ctx context.Context, pageURL, session string,
 	casURL := findCASRecordingURL(body)
 	videoSrc, vttPath := parseVideoElement(body)
 	jsVTT := findVTTFromJS(body)
+	casCaptionURL := findCASCaptionURL(body)
 
 	// Prefer casRecordingURL over video src tag
 	if casURL != "" {
@@ -552,15 +576,19 @@ func (d *Downloader) fetchPageInfo(ctx context.Context, pageURL, session string,
 	if vttPath != "" {
 		log(logger, "vtt track discovered", "path", vttPath)
 	}
+	if casCaptionURL != "" && vttPath != "" {
+		log(logger, "CAS caption endpoint discovered", "filename", vttPath)
+	}
 	if videoSrc == "" {
 		log(logger, "no video url discovered in page")
 	}
 
 	return pageInfo{
-		Title:    title,
-		VideoSrc: videoSrc,
-		VTTPath:  vttPath,
-		Cookies:  resp.Cookies(),
+		Title:         title,
+		VideoSrc:      videoSrc,
+		VTTPath:       vttPath,
+		CASCaptionURL: casCaptionURL,
+		Cookies:       resp.Cookies(),
 	}, nil
 }
 
