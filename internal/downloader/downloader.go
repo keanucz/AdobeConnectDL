@@ -803,7 +803,6 @@ func (d *Downloader) downloadDocuments(
 	// Start worker pool
 	var wg sync.WaitGroup
 	for range make([]struct{}, numWorkers) {
-		wg.Add(1)
 		wg.Go(func() {
 			for job := range jobs {
 				// Check context cancellation
