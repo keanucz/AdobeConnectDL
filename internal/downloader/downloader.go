@@ -354,6 +354,16 @@ func (d *Downloader) Download(ctx context.Context, rawURL string, opts Options) 
 				log(logger, "user mapping extracted", "count", len(userMapping))
 			}
 
+			// Index web links shared during the session
+			if links := extractWebLinks(extractDir); len(links) > 0 {
+				linksPath := filepath.Join(rootDir, "links.txt")
+				if err := writeLinkList(linksPath, links); err != nil {
+					log(logger, "link list write failed", "error", err)
+				} else {
+					log(logger, "link list created", "path", linksPath, "count", len(links))
+				}
+			}
+
 			// Extract document links
 			docs = extractDocumentLinks(extractDir, info.Hostname)
 
