@@ -44,16 +44,25 @@ type documentEntry struct {
 	hasPlaybackName bool
 }
 
-// extractDocumentLinks parses ftfileshare*.xml for document links.
-// Only ftfileshare*.xml contains reliable document URLs. The playbackFileName is
-// preferred as it's the persistent URL for archived recordings, while downloadUrl
-// may point to the original upload location which may no longer exist.
+// documentPodGlobs lists the raw XML files that carry attachment links. Older
+// recordings use the file share pod (ftfileshare*.xml), newer ones the resource
+// pod (ftresource*.xml). Both describe a file with the same newValue fields.
+var documentPodGlobs = []string{"ftfileshare*.xml", "ftresource*.xml"}
+
+// extractDocumentLinks parses the file share and resource pod XML for document
+// links. The playbackFileName is preferred as it's the persistent URL for
+// archived recordings, while downloadUrl may point to the original upload
+// location which may no longer exist.
 func extractDocumentLinks(rawDir, hostname string) []DocumentInfo {
 	// Map by filename to deduplicate and prefer playbackFileName entries
 	docsByName := make(map[string]*documentEntry)
 
-	// Only parse ftfileshare*.xml - these contain the file share pod data with reliable URLs
-	files, _ := filepath.Glob(filepath.Join(rawDir, "ftfileshare*.xml"))
+	// Only parse the pods that hold attachments - these contain reliable URLs
+	var files []string
+	for _, pattern := range documentPodGlobs {
+		matches, _ := filepath.Glob(filepath.Join(rawDir, pattern))
+		files = append(files, matches...)
+	}
 
 	// Match newValue blocks containing downloadUrl or playbackFileName
 	newValueRe := regexp.MustCompile(`(?s)<newValue>(.*?)</newValue>`)
@@ -164,6 +173,67 @@ func writeDocumentList(path string, docs []DocumentInfo) error {
 		}
 		fmt.Fprintf(f, "%d. %s (%d KB)\n", i+1, doc.Name, sizeKB)
 		fmt.Fprintf(f, "   URL: %s\n\n", doc.DownloadURL)
+	}
+
+	return nil
+}
+
+// LinkInfo represents a web link shared in the recording's web links pod.
+type LinkInfo struct {
+	Title string
+	URL   string
+}
+
+// webLinkRe matches a web links pod entry: a title, a URL and the literal type
+// "link" stored as consecutive unnamed strings.
+var webLinkRe = regexp.MustCompile(
+	`<String><!\[CDATA\[([^\]]*)\]\]></String>\s*` +
+		`<String><!\[CDATA\[(https?://[^\]]+)\]\]></String>\s*` +
+		`<String><!\[CDATA\[link\]\]></String>`,
+)
+
+// extractWebLinks parses ftresource*.xml for web links shared during the session.
+// The pod is recorded once per room layout, so links are deduplicated by URL and
+// returned in the order they are first seen.
+func extractWebLinks(rawDir string) []LinkInfo {
+	files, _ := filepath.Glob(filepath.Join(rawDir, "ftresource*.xml"))
+
+	seen := make(map[string]bool)
+	links := make([]LinkInfo, 0)
+
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+
+		for _, match := range webLinkRe.FindAllStringSubmatch(string(data), -1) {
+			linkURL := match[2]
+			if seen[linkURL] {
+				continue
+			}
+			seen[linkURL] = true
+			links = append(links, LinkInfo{Title: match[1], URL: linkURL})
+		}
+	}
+
+	return links
+}
+
+// writeLinkList writes the web link list to a file.
+func writeLinkList(path string, links []LinkInfo) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	fmt.Fprintf(f, "LECTURE LINKS\n")
+	fmt.Fprintf(f, "=============\n\n")
+
+	for i, link := range links {
+		fmt.Fprintf(f, "%d. %s\n", i+1, link.Title)
+		fmt.Fprintf(f, "   URL: %s\n\n", link.URL)
 	}
 
 	return nil

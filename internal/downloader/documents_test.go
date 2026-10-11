@@ -37,7 +37,7 @@ func TestExtractDocumentLinks(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(rawDir, "ftfileshare1.xml"), []byte(testFileShareXML), 0o644); err != nil {
 		t.Fatalf("write fileshare xml: %v", err)
 	}
-	// Files that do not match ftfileshare*.xml must be ignored.
+	// Files from other pods must be ignored.
 	if err := os.WriteFile(filepath.Join(rawDir, "ftchat1.xml"), []byte(testFileShareXML), 0o644); err != nil {
 		t.Fatalf("write chat xml: %v", err)
 	}
@@ -83,6 +83,154 @@ func TestExtractDocumentLinks(t *testing.T) {
 				t.Errorf("Size = %d, want %d", doc.Size, tt.wantSize)
 			}
 		})
+	}
+}
+
+// Newer Adobe Connect recordings store attachments in the resource pod
+// (ftresource*.xml) instead of the file share pod.
+const testResourceXML = `<root>
+<Message><Array><Object>
+  <code><![CDATA[change]]></code>
+  <newValue>
+    <downloadUrl><![CDATA[/system/download?download-url=/_a7/pup/output/&name=Topic+1.pdf]]></downloadUrl>
+    <encodedName><![CDATA[Topic%201.pdf]]></encodedName>
+    <name><![CDATA[Topic 1.pdf]]></name>
+    <playbackFileName><![CDATA[/system/download?download-url=/_a7/pplay/output/&name=Topic+1.pdf]]></playbackFileName>
+    <resourceType><![CDATA[file]]></resourceType>
+    <size><![CDATA[675335]]></size>
+  </newValue>
+</Object></Array></Message>
+<Message><Array><Object>
+  <newValue>
+    <name><![CDATA[Skills England]]></name>
+    <resourceType><![CDATA[link]]></resourceType>
+    <url><![CDATA[https://example.com/standard]]></url>
+  </newValue>
+</Object></Array></Message>
+</root>`
+
+func TestExtractDocumentLinksResourcePod(t *testing.T) {
+	rawDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(rawDir, "ftresource7.xml"), []byte(testResourceXML), 0o644); err != nil {
+		t.Fatalf("write resource xml: %v", err)
+	}
+	// The same attachment listed by both pod types must only be reported once.
+	if err := os.WriteFile(filepath.Join(rawDir, "ftfileshare1.xml"), []byte(testResourceXML), 0o644); err != nil {
+		t.Fatalf("write fileshare xml: %v", err)
+	}
+
+	docs := extractDocumentLinks(rawDir, "bpp.example.com")
+
+	if len(docs) != 1 {
+		t.Fatalf("expected 1 document, got %d: %+v", len(docs), docs)
+	}
+	want := DocumentInfo{
+		Name:        "Topic 1.pdf",
+		DownloadURL: "https://bpp.example.com/_a7/pplay/output/Topic%201.pdf?download=true",
+		Size:        675335,
+	}
+	if docs[0] != want {
+		t.Errorf("document = %+v, want %+v", docs[0], want)
+	}
+}
+
+func TestExtractDocumentLinksResourcePodOnly(t *testing.T) {
+	rawDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(rawDir, "ftresource7.xml"), []byte(testResourceXML), 0o644); err != nil {
+		t.Fatalf("write resource xml: %v", err)
+	}
+
+	docs := extractDocumentLinks(rawDir, "bpp.example.com")
+
+	if len(docs) != 1 || docs[0].Name != "Topic 1.pdf" {
+		t.Fatalf("expected Topic 1.pdf from the resource pod, got %+v", docs)
+	}
+}
+
+// Web links pods store each link as an unnamed index, title, URL and type.
+const testWebLinksXML = `<root>
+<Message><Array>
+<Object>
+  <code><![CDATA[change]]></code>
+  <name><![CDATA[0]]></name>
+  <newValue>
+    <Number><![CDATA[0]]></Number>
+    <String><![CDATA[Library]]></String>
+    <String><![CDATA[https://library.example.com/Home]]></String>
+    <String><![CDATA[link]]></String>
+  </newValue>
+</Object>
+<Object>
+  <newValue>
+    <Number><![CDATA[1]]></Number>
+    <String><![CDATA[Feedback]]></String>
+    <String><![CDATA[https://example.com/s/?a=1&b=2]]></String>
+    <String><![CDATA[link]]></String>
+  </newValue>
+</Object>
+</Array></Message>
+</root>`
+
+func TestExtractWebLinks(t *testing.T) {
+	rawDir := t.TempDir()
+	// The same pod is recorded once per layout, so links repeat across files.
+	for _, name := range []string{"ftresource8.xml", "ftresource33.xml"} {
+		if err := os.WriteFile(filepath.Join(rawDir, name), []byte(testWebLinksXML), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	// Attachments are not web links.
+	if err := os.WriteFile(filepath.Join(rawDir, "ftresource7.xml"), []byte(testResourceXML), 0o644); err != nil {
+		t.Fatalf("write resource xml: %v", err)
+	}
+
+	links := extractWebLinks(rawDir)
+
+	want := []LinkInfo{
+		{Title: "Library", URL: "https://library.example.com/Home"},
+		{Title: "Feedback", URL: "https://example.com/s/?a=1&b=2"},
+	}
+	if len(links) != len(want) {
+		t.Fatalf("expected %d links, got %d: %+v", len(want), len(links), links)
+	}
+	for i := range want {
+		if links[i] != want[i] {
+			t.Errorf("link %d = %+v, want %+v", i, links[i], want[i])
+		}
+	}
+}
+
+func TestExtractWebLinksNone(t *testing.T) {
+	if links := extractWebLinks(t.TempDir()); len(links) != 0 {
+		t.Fatalf("expected no links, got %+v", links)
+	}
+}
+
+func TestWriteLinkList(t *testing.T) {
+	links := []LinkInfo{{Title: "Library", URL: "https://library.example.com/Home"}}
+	path := filepath.Join(t.TempDir(), "links.txt")
+
+	if err := writeLinkList(path, links); err != nil {
+		t.Fatalf("writeLinkList error: %v", err)
+	}
+
+	want := "LECTURE LINKS\n" +
+		"=============\n\n" +
+		"1. Library\n" +
+		"   URL: https://library.example.com/Home\n\n"
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read links file: %v", err)
+	}
+	if string(got) != want {
+		t.Errorf("links file = %q, want %q", got, want)
+	}
+}
+
+func TestWriteLinkListCreateError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing", "links.txt")
+	if err := writeLinkList(path, nil); err == nil {
+		t.Fatal("expected an error for a missing parent directory")
 	}
 }
 

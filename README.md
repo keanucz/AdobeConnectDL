@@ -138,6 +138,7 @@ For each recording, you'll typically get a directory like:
 - 🗨️ `chat_log.txt` – chat window contents with names & timestamps
 - 📄 `documents/` – any attached documents from the session
 - 📑 `documents.txt` – quick index of attached documents
+- 🔗 `links.txt` – web links shared in the session
 - 🧾 `metadata.json` – assorted recording metadata
 - 🔍 `raw.zip` / `raw/` – original Adobe Connect assets (FLV/XML etc.), if you want to poke at them
 
